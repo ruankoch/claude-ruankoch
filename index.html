@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Post Search</title>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <style>
     *,
     *::before,
@@ -425,7 +426,7 @@
       <div class="header-sticky">
         <div class="header-title" id="header-title">Posts</div>
         <div class="header-subtitle" id="header-subtitle">
-          Upload a CSV to get started
+          Upload a CSV or XLS file to get started
         </div>
       </div>
 
@@ -462,13 +463,13 @@
             />
           </svg>
           <p>
-            Drop your CSV file here or <span id="browse-trigger">browse</span>
+            Drop your CSV or XLS file here or <span id="browse-trigger">browse</span>
           </p>
           <p class="upload-hint">
-            Expected columns: date, text (and optionally username, handle)
+            Supports .csv, .xls, and .xlsx — Expected columns: date, text (and optionally username, handle)
           </p>
         </div>
-        <input type="file" id="csv-file" accept=".csv" />
+        <input type="file" id="csv-file" accept=".csv,.xls,.xlsx" />
       </div>
 
       <!-- Result count -->
@@ -562,66 +563,7 @@
 
       function processCSV(text) {
         const rows = parseCSV(text);
-        if (rows.length < 2) return [];
-
-        const headers = rows[0].map(normalizeHeader);
-
-        // Find relevant column indices
-        const dateIdx = headers.findIndex((h) =>
-          ["date", "datetime", "createdat", "timestamp", "time", "postedat"].includes(h)
-        );
-        const textIdx = headers.findIndex((h) =>
-          ["text", "content", "body", "tweet", "tweettext", "post", "posttext", "fulltext"].includes(h)
-        );
-        const nameIdx = headers.findIndex((h) =>
-          ["username", "name", "displayname", "user", "author", "authorname"].includes(h)
-        );
-        const handleIdx = headers.findIndex((h) =>
-          ["handle", "screenname", "screen_name", "userhandle", "authorhandle"].includes(h)
-        );
-
-        if (textIdx === -1) {
-          alert(
-            'Could not find a "text" or "content" column in your CSV. Please make sure the header row contains one of: text, content, body, tweet, post, fulltext.'
-          );
-          return [];
-        }
-
-        const posts = [];
-        for (let i = 1; i < rows.length; i++) {
-          const r = rows[i];
-          const postText = r[textIdx] || "";
-          if (!postText) continue;
-
-          let dateVal = null;
-          if (dateIdx !== -1 && r[dateIdx]) {
-            dateVal = new Date(r[dateIdx]);
-            if (isNaN(dateVal.getTime())) dateVal = null;
-          }
-
-          const name = nameIdx !== -1 ? r[nameIdx] || "" : "";
-          const handle = handleIdx !== -1 ? r[handleIdx] || "" : "";
-
-          if (!accountName && name) accountName = name;
-          if (!accountHandle && handle) accountHandle = handle;
-
-          posts.push({
-            date: dateVal,
-            text: postText,
-            name: name || accountName || "User",
-            handle: handle || accountHandle || "@user",
-          });
-        }
-
-        // Sort reverse chronological
-        posts.sort((a, b) => {
-          if (a.date && b.date) return b.date - a.date;
-          if (a.date) return -1;
-          if (b.date) return 1;
-          return 0;
-        });
-
-        return posts;
+        return processRows(rows);
       }
 
       // ── Rendering ──────────────────────────────────────────
@@ -773,28 +715,119 @@
         searchInput.focus();
       });
 
+      // ── XLS parsing (via SheetJS) ─────────────────────────
+      function parseXLS(data) {
+        const workbook = XLSX.read(data, { type: "array", cellDates: true });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, dateNF: 'yyyy-mm-dd hh:mm:ss' });
+        return rows;
+      }
+
+      function processRows(rows) {
+        if (rows.length < 2) return [];
+
+        const headers = rows[0].map((h) => normalizeHeader(String(h)));
+
+        const dateIdx = headers.findIndex((h) =>
+          ["date", "datetime", "createdat", "timestamp", "time", "postedat"].includes(h)
+        );
+        const textIdx = headers.findIndex((h) =>
+          ["text", "content", "body", "tweet", "tweettext", "post", "posttext", "fulltext"].includes(h)
+        );
+        const nameIdx = headers.findIndex((h) =>
+          ["username", "name", "displayname", "user", "author", "authorname"].includes(h)
+        );
+        const handleIdx = headers.findIndex((h) =>
+          ["handle", "screenname", "screen_name", "userhandle", "authorhandle"].includes(h)
+        );
+
+        if (textIdx === -1) {
+          alert(
+            'Could not find a "text" or "content" column. Please make sure the header row contains one of: text, content, body, tweet, post, fulltext.'
+          );
+          return [];
+        }
+
+        const posts = [];
+        for (let i = 1; i < rows.length; i++) {
+          const r = rows[i];
+          if (!r || r.length === 0) continue;
+          const postText = r[textIdx] != null ? String(r[textIdx]) : "";
+          if (!postText) continue;
+
+          let dateVal = null;
+          if (dateIdx !== -1 && r[dateIdx]) {
+            dateVal = new Date(r[dateIdx]);
+            if (isNaN(dateVal.getTime())) dateVal = null;
+          }
+
+          const name = nameIdx !== -1 && r[nameIdx] ? String(r[nameIdx]) : "";
+          const handle = handleIdx !== -1 && r[handleIdx] ? String(r[handleIdx]) : "";
+
+          if (!accountName && name) accountName = name;
+          if (!accountHandle && handle) accountHandle = handle;
+
+          posts.push({
+            date: dateVal,
+            text: postText,
+            name: name || accountName || "User",
+            handle: handle || accountHandle || "@user",
+          });
+        }
+
+        posts.sort((a, b) => {
+          if (a.date && b.date) return b.date - a.date;
+          if (a.date) return -1;
+          if (b.date) return 1;
+          return 0;
+        });
+
+        return posts;
+      }
+
       // ── File upload ────────────────────────────────────────
+      function loadPosts(posts) {
+        if (posts.length === 0) return;
+
+        uploadArea.classList.add("hidden");
+        headerTitle.textContent = accountName || "Posts";
+        headerSubtitle.textContent = posts.length + " posts";
+        searchInput.value = "";
+        doSearch();
+      }
+
       function handleFile(file) {
-        if (!file || !file.name.endsWith(".csv")) {
-          alert("Please upload a .csv file.");
+        if (!file) return;
+
+        const ext = file.name.split(".").pop().toLowerCase();
+        const supported = ["csv", "xls", "xlsx"];
+
+        if (!supported.includes(ext)) {
+          alert("Please upload a .csv, .xls, or .xlsx file.");
           return;
         }
 
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          accountName = "";
-          accountHandle = "";
-          allPosts = processCSV(e.target.result);
+        accountName = "";
+        accountHandle = "";
 
-          if (allPosts.length === 0) return;
-
-          uploadArea.classList.add("hidden");
-          headerTitle.textContent = accountName || "Posts";
-          headerSubtitle.textContent = allPosts.length + " posts";
-          searchInput.value = "";
-          doSearch();
-        };
-        reader.readAsText(file);
+        if (ext === "csv") {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            allPosts = processCSV(e.target.result);
+            loadPosts(allPosts);
+          };
+          reader.readAsText(file);
+        } else {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const data = new Uint8Array(e.target.result);
+            const rows = parseXLS(data);
+            allPosts = processRows(rows);
+            loadPosts(allPosts);
+          };
+          reader.readAsArrayBuffer(file);
+        }
       }
 
       browseTrigger.addEventListener("click", () => fileInput.click());
