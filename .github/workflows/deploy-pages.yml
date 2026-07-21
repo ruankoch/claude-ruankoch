@@ -37,10 +37,11 @@ jobs:
       - run: npm ci
       - run: npm test
       - name: Build
-        # Served at https://<owner>.github.io/claude-ruankoch/ — base must match.
+        # Served at https://<owner>.github.io/<repo>/ — base is derived from the
+        # repo name so it stays correct if the repo is renamed or forked.
         run: npm run build
         env:
-          VITE_BASE: /claude-ruankoch/
+          VITE_BASE: /${{ github.event.repository.name }}/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: white-lights/dist
