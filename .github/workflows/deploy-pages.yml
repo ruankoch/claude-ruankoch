@@ -6,9 +6,6 @@ on:
       - claude/app-build-vjsurc
       - main
       - master
-    paths:
-      - 'white-lights/**'
-      - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
 permissions:
