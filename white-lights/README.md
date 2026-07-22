@@ -72,11 +72,29 @@ One-directional, append-only (app → sheet). Setup, in the target Sheet:
      return sh;
    }
 
+   // write side: append rows the app posts
    function doPost(e) {
      const rows = JSON.parse(e.postData.contents); // array of row arrays
      const sh = sheet_();
      rows.forEach(r => sh.appendRow(r));
      return ContentService.createTextOutput('ok');
+   }
+
+   // read side (two-way sync): return the whole log as JSONP so the app can
+   // pull + merge across devices (Apps Script sends no CORS headers, so the
+   // app reads via a <script> callback rather than fetch)
+   function doGet(e) {
+     var values = sheet_().getDataRange().getValues().map(function (row) {
+       return row.map(function (c) {
+         return Object.prototype.toString.call(c) === '[object Date]'
+           ? Utilities.formatDate(c, Session.getScriptTimeZone(), 'yyyy-MM-dd')
+           : c;
+       });
+     });
+     var cb = e && e.parameter && e.parameter.callback;
+     var body = JSON.stringify(values);
+     return ContentService.createTextOutput(cb ? cb + '(' + body + ')' : body)
+       .setMimeType(cb ? ContentService.MimeType.JAVASCRIPT : ContentService.MimeType.JSON);
    }
    ```
 
@@ -84,15 +102,22 @@ One-directional, append-only (app → sheet). Setup, in the target Sheet:
    **Anyone**. Copy the **Web app URL** (ends in `/exec`).
 3. Paste that `/exec` URL under **More → Google Sheets sync** in the app.
 
-Each logged set queues a row (`date, exercise, weight, reps, rpe, miss,
-source, id`) and flushes on app start, when connectivity returns, and after
-each write. Deletes and edits do not sync — the sheet is a ledger, not a
-mirror; the trailing `id` makes it self-deduplicating. The `/exec` URL is the
-only secret — rotate by redeploying.
+**Two-way** across devices. Each logged set queues a row (`date, exercise,
+weight, reps, rpe, miss, source, id`) and pushes to the sheet; the app also
+**pulls and merges** on launch, on reconnect, and on **Sync now**, so a fresh
+device (desktop, second phone) converges to the same log. Merge is trivial
+because sets are atomic and id-keyed: add sets whose id you lack, drop sets
+whose id has a `delete` tombstone row. **Sets sync** (so all derived stats —
+PRs, e1RM, volume, intensity — match); **goals, notes, and training maxes stay
+per-device**. Deleting a set appends a tombstone so the deletion propagates.
 
-**The sheet only records sets logged _after_ you connect it** (append-only, no
-backfill). To seed it with your existing log once, use **More → Export CSV**
-and paste those rows into the `Log` tab.
+The read side pulls via JSONP because Apps Script sends no CORS headers. The
+`/exec` URL is the only secret and now grants **read** of your log as well as
+append — fine for a personal log; rotate by redeploying if it leaks.
+
+**The sheet only records sets logged _after_ you connect it** (no backfill of
+prior local data). To seed it once, use **More → Export CSV** and paste those
+rows into the `Log` tab; other devices then pull them.
 
 ### Sync gotchas (learned the hard way)
 
