@@ -85,7 +85,9 @@ export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet }: Pr
     return Object.keys(byDate)
       .sort((a, b) => b.localeCompare(a)) // newest first
       .map((date) => {
-        const daySets = byDate[date].slice().sort((a, b) => b.weight - a.weight);
+        const daySets = byDate[date]
+          .slice()
+          .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0) || a.id.localeCompare(b.id));
         const made = daySets.filter((s) => !s.miss);
         const topE = made.length ? Math.max(...made.map((s) => e1rm(s.weight, s.reps, s.rpe, settings))) : 0;
         return { date, sets: daySets, topE, count: daySets.length };

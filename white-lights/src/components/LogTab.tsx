@@ -225,7 +225,9 @@ export function LogTab({
         onChange={(e) => onSetNote(date, e.target.value)}
       />
       {todays.length === 0 && <div className="empty">No sets on this date yet. Chalk up.</div>}
-      {[...todays].reverse().map((s) => (
+      {[...todays]
+        .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0) || a.id.localeCompare(b.id))
+        .map((s) => (
         <div key={s.id} className={'setrow' + (s.miss ? ' missed' : '')}>
           <div className="setrow-main">
             <span className="set-ex">

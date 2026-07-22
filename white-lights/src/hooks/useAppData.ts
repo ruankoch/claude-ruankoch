@@ -400,6 +400,8 @@ export function useAppData(): AppApi {
         return exId;
       };
 
+      // preserve the sheet's row order (= logging order) for pulled sets
+      let pulledSeq = Date.now();
       for (const row of rows) {
         const id = row.id;
         if (!id || tombstones.has(id)) continue; // id-less rows can't dedupe; skip
@@ -412,7 +414,7 @@ export function useAppData(): AppApi {
           weight: row.weight,
           reps: row.reps,
           rpe: row.rpe,
-          createdAt: Date.now(),
+          createdAt: pulledSeq++,
           ...(row.miss ? { miss: true as const } : {}),
           ...(row.source === 'meet'
             ? { hist: true as const, meet: true as const }
