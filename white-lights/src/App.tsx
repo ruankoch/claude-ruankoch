@@ -4,12 +4,13 @@ import { beepThree, ensureAudio } from './audio';
 import { e1rm, goalMetBySet, goalName } from './derive';
 import { LogTab } from './components/LogTab';
 import { PRTab } from './components/PRTab';
+import { HistoryTab } from './components/HistoryTab';
 import { ChartTab } from './components/ChartTab';
 import { MoreTab } from './components/MoreTab';
 import { RestTimerBar, type TimerState } from './components/RestTimer';
 import type { SetRow } from './types';
 
-type Tab = 'log' | 'prs' | 'charts' | 'more';
+type Tab = 'log' | 'prs' | 'history' | 'charts' | 'more';
 type Toast = { pr: boolean; text: string };
 
 export default function App() {
@@ -184,6 +185,15 @@ export default function App() {
             onAddHistoric={addHistoric} onDeleteSet={api.deleteSet}
           />
         )}
+        {tab === 'history' && (
+          <HistoryTab
+            exercises={orderedExercises}
+            sets={sets}
+            settings={settings}
+            notes={data.notes}
+            onDeleteSet={api.deleteSet}
+          />
+        )}
         {tab === 'charts' && (
           <ChartTab exercises={orderedExercises} sets={sets} settings={settings} goals={goals} />
         )}
@@ -216,6 +226,7 @@ export default function App() {
         {([
           ['log', 'Log'],
           ['prs', 'PRs'],
+          ['history', 'History'],
           ['charts', 'Charts'],
           ['more', 'More'],
         ] as [Tab, string][]).map(([id, label]) => (
