@@ -90,18 +90,11 @@ export default function App() {
     setTimeout(() => setToast((cur) => (cur === t ? null : cur)), 4000);
   };
 
-  /* recent-first exercise ordering */
-  const orderedExercises = useMemo(() => {
-    const lastUsed: Record<string, string> = {};
-    sets.forEach((s) => {
-      if (!lastUsed[s.exId] || s.date > lastUsed[s.exId]) lastUsed[s.exId] = s.date;
-    });
-    return [...exercises].sort((a, b) => {
-      const la = lastUsed[a.id] || '';
-      const lb = lastUsed[b.id] || '';
-      return la !== lb ? lb.localeCompare(la) : 0;
-    });
-  }, [exercises, sets]);
+  /* alphabetical exercise ordering, app-wide */
+  const orderedExercises = useMemo(
+    () => [...exercises].sort((a, b) => a.name.localeCompare(b.name)),
+    [exercises],
+  );
 
   /* addSet: PR detection BEFORE insert, then persist + auto-start rest timer */
   const addSet = (set: SetRow) => {
@@ -181,6 +174,7 @@ export default function App() {
         {tab === 'prs' && (
           <PRTab
             exercises={orderedExercises} sets={sets} settings={settings} goals={goals}
+            selectedExId={api.selectedExId} onSelectEx={api.setSelectedExId}
             onAddGoal={api.addGoal} onDeleteGoal={api.deleteGoal}
             onAddHistoric={addHistoric} onDeleteSet={api.deleteSet}
           />
@@ -195,7 +189,10 @@ export default function App() {
           />
         )}
         {tab === 'charts' && (
-          <ChartTab exercises={orderedExercises} sets={sets} settings={settings} goals={goals} />
+          <ChartTab
+            exercises={orderedExercises} sets={sets} settings={settings} goals={goals}
+            selectedExId={api.selectedExId} onSelectEx={api.setSelectedExId}
+          />
         )}
         {tab === 'more' && <MoreTab api={api} showToast={showToast} />}
       </main>

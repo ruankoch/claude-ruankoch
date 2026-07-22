@@ -3,9 +3,17 @@
    file the artifact's math is verified against (see derive.test.ts). */
 
 import { isoShift } from './dates';
-import type { Goal, SetRow, Settings, Units } from './types';
+import type { Exercise, Goal, SetRow, Settings, Units } from './types';
 
 export const round1 = (x: number): number => Math.round(x * 10) / 10;
+
+/** Resolve a stored selection to a valid exercise id, falling back to the first
+    (e.g. when nothing is selected yet or the selected lift was deleted). */
+export function resolveExId(selected: string, exercises: Exercise[]): string {
+  return selected && exercises.some((e) => e.id === selected)
+    ? selected
+    : exercises[0]?.id || '';
+}
 
 export const uid = (): string =>
   Math.random().toString(36).slice(2, 10) + Date.now().toString(36);

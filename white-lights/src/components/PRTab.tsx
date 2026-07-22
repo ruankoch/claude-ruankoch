@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { ExercisePicker } from './ExercisePicker';
 import { HistoricPRCard } from './HistoricPRCard';
 import { GoalsCard } from './GoalsCard';
-import { colorForReps, e1rm, round1 } from '../derive';
+import { colorForReps, e1rm, resolveExId, round1 } from '../derive';
 import { fmtDate, fmtDateFull } from '../dates';
 import type { Exercise, Goal, SetRow, Settings } from '../types';
 
@@ -11,6 +11,8 @@ interface Props {
   sets: SetRow[];
   settings: Settings;
   goals: Goal[];
+  selectedExId: string;
+  onSelectEx: (id: string) => void;
   onAddGoal: (g: Goal) => void;
   onDeleteGoal: (id: string) => void;
   onAddHistoric: (set: SetRow) => void;
@@ -18,12 +20,10 @@ interface Props {
 }
 
 export function PRTab({
-  exercises, sets, settings, goals, onAddGoal, onDeleteGoal, onAddHistoric, onDeleteSet,
+  exercises, sets, settings, goals, selectedExId, onSelectEx,
+  onAddGoal, onDeleteGoal, onAddHistoric, onDeleteSet,
 }: Props) {
-  const [exId, setExId] = useState(exercises[0]?.id || '');
-  useEffect(() => {
-    if (!exId && exercises.length) setExId(exercises[0].id);
-  }, [exercises, exId]);
+  const exId = resolveExId(selectedExId, exercises);
 
   const mine = sets.filter((s) => s.exId === exId && !s.miss);
 
@@ -72,7 +72,7 @@ export function PRTab({
 
   return (
     <div>
-      <ExercisePicker exercises={exercises} exId={exId} onSelect={setExId} />
+      <ExercisePicker exercises={exercises} exId={exId} onSelect={onSelectEx} />
 
       {!mine.length && (
         <div className="empty">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Bar, BarChart, CartesianGrid, ComposedChart, Line, ReferenceLine,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -7,7 +7,7 @@ import { ExercisePicker } from './ExercisePicker';
 import { AXIS_TICK, TT_LABEL, TT_STYLE } from './chartStyle';
 import {
   colorForReps, e1rm, fmtTon, goalName, INTENSITY_BANDS, PATTERN_COLORS, PATTERNS,
-  patternOf, rollingDenominator, round1, type Pattern,
+  patternOf, resolveExId, rollingDenominator, round1, type Pattern,
 } from '../derive';
 import { fmtDate, fmtDateFull, rangeCutoff, todayStr, weekStart } from '../dates';
 import type { Exercise, Goal, SetRow, Settings } from '../types';
@@ -19,11 +19,14 @@ interface TabProps {
   sets: SetRow[];
   settings: Settings;
   goals: Goal[];
+  selectedExId: string;
+  onSelectEx: (id: string) => void;
 }
 
-export function ChartTab({ exercises, sets, settings, goals }: TabProps) {
+export function ChartTab({ exercises, sets, settings, goals, selectedExId, onSelectEx }: TabProps) {
   const [mode, setMode] = useState<Mode>('lift');
   const [rangeWks, setRangeWks] = useState(8);
+  const sel = { selectedExId, onSelectEx };
 
   return (
     <div>
@@ -52,23 +55,22 @@ export function ChartTab({ exercises, sets, settings, goals }: TabProps) {
         </div>
       )}
 
-      {mode === 'lift' && <LiftChart exercises={exercises} sets={sets} settings={settings} goals={goals} />}
+      {mode === 'lift' && (
+        <LiftChart exercises={exercises} sets={sets} settings={settings} goals={goals} {...sel} />
+      )}
       {mode === 'volume' && (
-        <VolumeView exercises={exercises} sets={sets} settings={settings} rangeWks={rangeWks} />
+        <VolumeView exercises={exercises} sets={sets} settings={settings} rangeWks={rangeWks} {...sel} />
       )}
       {mode === 'intensity' && (
-        <IntensityView exercises={exercises} sets={sets} settings={settings} rangeWks={rangeWks} />
+        <IntensityView exercises={exercises} sets={sets} settings={settings} rangeWks={rangeWks} {...sel} />
       )}
     </div>
   );
 }
 
-function LiftChart({ exercises, sets, settings, goals }: TabProps) {
-  const [exId, setExId] = useState(exercises[0]?.id || '');
+function LiftChart({ exercises, sets, settings, goals, selectedExId, onSelectEx }: TabProps) {
   const [selReps, setSelReps] = useState<number[] | null>(null);
-  useEffect(() => {
-    if (!exId && exercises.length) setExId(exercises[0].id);
-  }, [exercises, exId]);
+  const exId = resolveExId(selectedExId, exercises);
 
   const mine = sets.filter((s) => s.exId === exId && !s.miss);
   const exGoals = goals.filter((g) => g.exId === exId);
@@ -116,7 +118,7 @@ function LiftChart({ exercises, sets, settings, goals }: TabProps) {
       <ExercisePicker
         exercises={exercises} exId={exId}
         onSelect={(id) => {
-          setExId(id);
+          onSelectEx(id);
           setSelReps(null);
         }}
       />
@@ -253,10 +255,10 @@ interface RangeProps extends TabProps {
   rangeWks: number;
 }
 
-function VolumeView({ exercises, sets, settings, rangeWks }: Omit<RangeProps, 'goals'>) {
+function VolumeView({ exercises, sets, settings, rangeWks, selectedExId, onSelectEx }: Omit<RangeProps, 'goals'>) {
   const [metric, setMetric] = useState('ton');
   const [scope, setScope] = useState<Scope>('pattern');
-  const [exId, setExId] = useState(exercises[0]?.id || '');
+  const exId = resolveExId(selectedExId, exercises);
 
   const nameOf = (id: string) => exercises.find((e) => e.id === id)?.name || '';
   const cutoff = rangeCutoff(rangeWks);
@@ -302,7 +304,7 @@ function VolumeView({ exercises, sets, settings, rangeWks }: Omit<RangeProps, 'g
   return (
     <div>
       <ScopeControls scope={scope} setScope={setScope} metric={metric} setMetric={setMetric} showMetric />
-      {scope === 'lift' && <ExercisePicker exercises={exercises} exId={exId} onSelect={setExId} />}
+      {scope === 'lift' && <ExercisePicker exercises={exercises} exId={exId} onSelect={onSelectEx} />}
 
       {twPatterns.length > 0 && (
         <div className="card table-card">
@@ -372,9 +374,9 @@ function VolumeView({ exercises, sets, settings, rangeWks }: Omit<RangeProps, 'g
   );
 }
 
-function IntensityView({ exercises, sets, settings, rangeWks }: Omit<RangeProps, 'goals'>) {
+function IntensityView({ exercises, sets, settings, rangeWks, selectedExId, onSelectEx }: Omit<RangeProps, 'goals'>) {
   const [scope, setScope] = useState<Scope>('pattern');
-  const [exId, setExId] = useState(exercises[0]?.id || '');
+  const exId = resolveExId(selectedExId, exercises);
   const [denom, setDenom] = useState<'all' | 'roll'>('all');
 
   const nameOf = (id: string) => exercises.find((e) => e.id === id)?.name || '';
@@ -434,7 +436,7 @@ function IntensityView({ exercises, sets, settings, rangeWks }: Omit<RangeProps,
           ))}
         </div>
       </div>
-      {scope === 'lift' && <ExercisePicker exercises={exercises} exId={exId} onSelect={setExId} />}
+      {scope === 'lift' && <ExercisePicker exercises={exercises} exId={exId} onSelect={onSelectEx} />}
 
       {!anyData && (
         <div className="empty">No made lifts in this window. Log some sets, or widen the range.</div>

@@ -32,6 +32,7 @@ import type {
 const SETTINGS_KEY = 'settings';
 const PLAN_KEY = 'plan';
 const TMS_KEY = 'tms';
+const SELECTED_EX_KEY = 'selectedExId';
 
 async function currentUnits(): Promise<Settings['units']> {
   const s = await kvGet<Settings>(SETTINGS_KEY, DEFAULT_SETTINGS);
@@ -42,6 +43,8 @@ export interface AppApi {
   data: AppData;
   loaded: boolean;
   sync: { queued: number; lastSync: number | null; url: string };
+  selectedExId: string;
+  setSelectedExId: (id: string) => Promise<void>;
   addExercise: (name: string) => string;
   addSet: (set: SetRow) => Promise<void>;
   addHistoric: (set: SetRow) => Promise<void>;
@@ -74,6 +77,7 @@ export function useAppData(): AppApi {
   const queued = useLiveQuery(() => db.outbox.count(), [], 0);
   const lastSync = useLiveQuery(() => kvGet<number | null>(LAST_SYNC_KEY, null), [], null);
   const syncUrl = useLiveQuery(() => kvGet<string>(SYNC_URL_KEY, ''), [], '');
+  const selectedExId = useLiveQuery(() => kvGet<string>(SELECTED_EX_KEY, ''), [], '');
 
   /* one-time seed + storage persistence + initial flush */
   useEffect(() => {
@@ -341,6 +345,10 @@ export function useAppData(): AppApi {
     void flush();
   }, []);
 
+  const setSelectedExId = useCallback(async (id: string) => {
+    await kvSet(SELECTED_EX_KEY, id);
+  }, []);
+
   /* Pull the sheet and merge: add sets whose id we lack (matching exercises by
      name, creating missing), drop sets whose id has a delete tombstone. */
   const pullSync = useCallback(async (): Promise<{ added: number; removed: number }> => {
@@ -456,6 +464,8 @@ export function useAppData(): AppApi {
     data,
     loaded,
     sync: { queued: queued ?? 0, lastSync: lastSync ?? null, url: syncUrl ?? '' },
+    selectedExId: selectedExId ?? '',
+    setSelectedExId,
     addExercise,
     addSet,
     addHistoric,
