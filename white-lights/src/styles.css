@@ -351,6 +351,12 @@ html, body, #root { background: #101214; }
 .nav-btn.on { color: #EDEDE8; }
 
 /* history */
+.hist-count { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 8px; }
+.hist-clear {
+  background: none; border: none; color: #7E858C; cursor: pointer;
+  font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 2px 4px;
+  text-decoration: underline;
+}
 .histcard { padding: 10px 12px; }
 .hist-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .hist-date {

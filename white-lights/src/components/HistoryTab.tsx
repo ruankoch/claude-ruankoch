@@ -4,6 +4,7 @@ import { fmtDateFull, rangeCutoff } from '../dates';
 import type { Exercise, SetRow, Settings } from '../types';
 
 const ALL = '__all__';
+const RPE_STEPS: (number | null)[] = [null, 7, 8, 9];
 
 interface Props {
   exercises: Exercise[];
@@ -18,10 +19,32 @@ export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet }: Pr
   const [rangeWks, setRangeWks] = useState(0); // 0 = all time
   const [madeOnly, setMadeOnly] = useState(false);
   const [reps, setReps] = useState<number | null>(null);
+  const [query, setQuery] = useState('');
+  const [wMin, setWMin] = useState('');
+  const [wMax, setWMax] = useState('');
+  const [minRpe, setMinRpe] = useState<number | null>(null);
 
   const nameOf = (id: string) => exercises.find((e) => e.id === id)?.name || '?';
   const cutoff = rangeCutoff(rangeWks);
+  const wmin = parseFloat(wMin);
+  const wmax = parseFloat(wMax);
 
+  const anyFilter =
+    exId !== ALL || rangeWks !== 0 || madeOnly || reps != null || !!query.trim() ||
+    Number.isFinite(wmin) || Number.isFinite(wmax) || minRpe != null;
+
+  const clearFilters = () => {
+    setExId(ALL);
+    setRangeWks(0);
+    setMadeOnly(false);
+    setReps(null);
+    setQuery('');
+    setWMin('');
+    setWMax('');
+    setMinRpe(null);
+  };
+
+  // set-level filters
   const filtered = useMemo(
     () =>
       sets.filter((s) => {
@@ -29,9 +52,12 @@ export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet }: Pr
         if (cutoff && s.date < cutoff) return false;
         if (madeOnly && s.miss) return false;
         if (reps != null && s.reps !== reps) return false;
+        if (Number.isFinite(wmin) && s.weight < wmin) return false;
+        if (Number.isFinite(wmax) && s.weight > wmax) return false;
+        if (minRpe != null && (s.rpe == null || s.rpe < minRpe)) return false;
         return true;
       }),
-    [sets, exId, cutoff, madeOnly, reps],
+    [sets, exId, cutoff, madeOnly, reps, wmin, wmax, minRpe],
   );
 
   const repCounts = useMemo(() => {
@@ -41,7 +67,7 @@ export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet }: Pr
     return [...present].sort((a, b) => a - b);
   }, [sets, exId]);
 
-  const sessions = useMemo(() => {
+  const grouped = useMemo(() => {
     const byDate: Record<string, SetRow[]> = {};
     filtered.forEach((s) => {
       (byDate[s.date] ||= []).push(s);
@@ -56,7 +82,18 @@ export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet }: Pr
       });
   }, [filtered, settings]);
 
-  // heaviest made weight per rep count for the selected lift → ★ on standing bests
+  // keyword search over session notes + exercise names (session-level)
+  const q = query.trim().toLowerCase();
+  const sessions = useMemo(() => {
+    if (!q) return grouped;
+    return grouped.filter(
+      (sess) =>
+        (notes[sess.date] || '').toLowerCase().includes(q) ||
+        sess.sets.some((s) => nameOf(s.exId).toLowerCase().includes(q)),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grouped, q, notes]);
+
   const bestAtRep = useMemo(() => {
     const m: Record<number, number> = {};
     if (exId === ALL) return m;
@@ -68,7 +105,7 @@ export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet }: Pr
     return m;
   }, [sets, exId]);
 
-  const totalSets = filtered.length;
+  const totalSets = sessions.reduce((a, s) => a + s.count, 0);
 
   return (
     <div>
@@ -95,6 +132,14 @@ export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet }: Pr
         </div>
       </div>
 
+      <input
+        className="txt"
+        style={{ marginBottom: 10 }}
+        placeholder="Search notes & exercises — e.g. belt, tweak, deadlift…"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+
       <div className="ctrlrow">
         <div className="seg">
           {([[4, '4 wks'], [8, '8 wks'], [0, 'All']] as [number, string][]).map(([v, l]) => (
@@ -110,6 +155,28 @@ export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet }: Pr
           <button className={'seg-btn' + (madeOnly ? ' on' : '')} onClick={() => setMadeOnly(true)}>
             Made only
           </button>
+        </div>
+      </div>
+
+      <div className="ctrlrow">
+        <input
+          className="txt num" inputMode="decimal" placeholder={`min ${settings.units}`}
+          value={wMin} onChange={(e) => setWMin(e.target.value.replace(',', '.'))}
+        />
+        <input
+          className="txt num" inputMode="decimal" placeholder={`max ${settings.units}`}
+          value={wMax} onChange={(e) => setWMax(e.target.value.replace(',', '.'))}
+        />
+        <div className="seg">
+          {RPE_STEPS.map((v) => (
+            <button
+              key={String(v)}
+              className={'seg-btn' + (minRpe === v ? ' on' : '')}
+              onClick={() => setMinRpe(v)}
+            >
+              {v == null ? 'any RPE' : `≥${v}`}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -136,13 +203,20 @@ export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet }: Pr
       )}
 
       {sessions.length === 0 && (
-        <div className="empty">No sessions match these filters. Widen the range, or log a set.</div>
+        <div className="empty">No sessions match these filters. Widen the range, or clear filters.</div>
       )}
 
-      {sessions.length > 0 && (
-        <div className="foot" style={{ padding: '0 2px 8px' }}>
-          {sessions.length} session{sessions.length > 1 ? 's' : ''} · {totalSets} set
-          {totalSets > 1 ? 's' : ''}
+      {(sessions.length > 0 || anyFilter) && (
+        <div className="hist-count">
+          <span className="foot" style={{ padding: 0 }}>
+            {sessions.length} session{sessions.length === 1 ? '' : 's'} · {totalSets} set
+            {totalSets === 1 ? '' : 's'}
+          </span>
+          {anyFilter && (
+            <button className="hist-clear" onClick={clearFilters}>
+              clear filters
+            </button>
+          )}
         </div>
       )}
 
@@ -158,10 +232,7 @@ export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet }: Pr
           {notes[sess.date] && <div className="hist-note">{notes[sess.date]}</div>}
           {sess.sets.map((s) => (
             <div key={s.id} className={'hist-row' + (s.miss ? ' missed' : '')}>
-              <span
-                className="repdot"
-                style={{ background: s.miss ? '#565C62' : colorForReps(s.reps) }}
-              />
+              <span className="repdot" style={{ background: s.miss ? '#565C62' : colorForReps(s.reps) }} />
               <span className="hist-main">
                 {exId === ALL && <span className="hist-ex">{nameOf(s.exId)} </span>}
                 <span className="hist-num">
@@ -170,18 +241,14 @@ export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet }: Pr
                   {settings.units} × {s.reps}
                   {s.rpe != null ? ` @${s.rpe}` : ''}
                 </span>
-                {!s.miss && exId !== ALL && bestAtRep[s.reps] === s.weight && (
-                  <span className="hist-pr"> ★</span>
-                )}
+                {!s.miss && exId !== ALL && bestAtRep[s.reps] === s.weight && <span className="hist-pr"> ★</span>}
                 {s.meet ? (
                   <span className="hist-tag"> · meet</span>
                 ) : s.hist ? (
                   <span className="hist-tag"> · pr entry</span>
                 ) : null}
               </span>
-              <span className="hist-e1">
-                {!s.miss ? round1(e1rm(s.weight, s.reps, s.rpe, settings)) : ''}
-              </span>
+              <span className="hist-e1">{!s.miss ? round1(e1rm(s.weight, s.reps, s.rpe, settings)) : ''}</span>
               <button className="del" onClick={() => onDeleteSet(s.id)} aria-label="Delete set">
                 ✕
               </button>
