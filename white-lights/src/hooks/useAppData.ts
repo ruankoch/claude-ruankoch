@@ -6,11 +6,14 @@ import { DEFAULT_EXERCISES, DEFAULT_SETTINGS, DEFAULT_TMS } from '../data/exerci
 import { MEET_HISTORY } from '../data/meetHistory';
 import { sampleSets } from '../data/sample';
 import {
+  buildTombstoneRow,
+  enqueue,
   enqueueSets,
   flush,
   LAST_SYNC_KEY,
   SYNC_URL_KEY,
 } from '../sync/outbox';
+import { jsonpGet, parseSheetMatrix } from '../sync/sheetSync';
 import type {
   AppData,
   BackupBlob,
@@ -48,7 +51,8 @@ export interface AppApi {
   clearAll: () => Promise<void>;
   importBackup: (blob: BackupBlob) => Promise<{ sets: number; exercises: number }>;
   setSyncUrl: (url: string) => Promise<void>;
-  syncNow: () => Promise<number>;
+  pullSync: () => Promise<{ added: number; removed: number }>;
+  syncNow: () => Promise<{ remaining: number; added: number; removed: number }>;
 }
 
 export function useAppData(): AppApi {
@@ -83,12 +87,22 @@ export function useAppData(): AppApi {
     })();
   }, []);
 
-  /* flush the outbox when connectivity returns */
+  /* flush the outbox and pull the sheet when connectivity returns */
   useEffect(() => {
-    const on = () => void flush();
+    const on = () => {
+      void flush();
+      void pullOnce();
+    };
     window.addEventListener('online', on);
     return () => window.removeEventListener('online', on);
   }, []);
+
+  /* pull + merge once on app start (after seed), so a fresh device/browser
+     converges to the shared sheet without a manual tap */
+  useEffect(() => {
+    if (!seeded) return;
+    void pullOnce();
+  }, [seeded]);
 
   const loaded =
     seeded &&
@@ -134,7 +148,15 @@ export function useAppData(): AppApi {
   const addHistoric = useCallback((set: SetRow) => persistAndSync([set]), [persistAndSync]);
 
   const deleteSet = useCallback(async (id: string) => {
-    await db.sets.delete(id); // deletes do not sync (append-only ledger)
+    const s = await db.sets.get(id);
+    await db.sets.delete(id);
+    if (s) {
+      // append a delete tombstone so other devices drop this id on pull
+      const exs = await db.exercises.toArray();
+      const name = exs.find((e) => e.id === s.exId)?.name || '';
+      await enqueue([buildTombstoneRow(s, name)]);
+      void flush();
+    }
   }, []);
 
   const addGoal = useCallback(async (goal: Goal) => {
@@ -285,7 +307,79 @@ export function useAppData(): AppApi {
     void flush();
   }, []);
 
-  const syncNow = useCallback(() => flush(), []);
+  /* Pull the sheet and merge: add sets whose id we lack (matching exercises by
+     name, creating missing), drop sets whose id has a delete tombstone. */
+  const pullSync = useCallback(async (): Promise<{ added: number; removed: number }> => {
+    const url = await kvGet<string>(SYNC_URL_KEY, '');
+    if (!url) return { added: 0, removed: 0 };
+    const matrix = await jsonpGet(url);
+    const { sets: rows, tombstones } = parseSheetMatrix(matrix);
+    let added = 0;
+    let removed = 0;
+    await db.transaction('rw', [db.exercises, db.sets], async () => {
+      const existing = await db.exercises.toArray();
+      const byName = new Map<string, string>();
+      existing.forEach((e) => byName.set(e.name.trim().toLowerCase(), e.id));
+
+      for (const row of rows) {
+        const id = row.id;
+        if (!id || tombstones.has(id)) continue; // id-less rows can't dedupe; skip
+        if (await db.sets.get(id)) continue; // already have it
+        const key = row.name.trim().toLowerCase();
+        let exId = byName.get(key);
+        if (!exId) {
+          exId = uid();
+          byName.set(key, exId);
+          await db.exercises.add({ id: exId, name: row.name.trim() });
+        }
+        await db.sets.add({
+          id,
+          exId,
+          date: row.date,
+          weight: row.weight,
+          reps: row.reps,
+          rpe: row.rpe,
+          createdAt: Date.now(),
+          ...(row.miss ? { miss: true as const } : {}),
+          ...(row.source === 'meet'
+            ? { hist: true as const, meet: true as const }
+            : row.source === 'historic'
+              ? { hist: true as const }
+              : {}),
+        });
+        added++;
+      }
+
+      for (const tid of tombstones) {
+        if (await db.sets.get(tid)) {
+          await db.sets.delete(tid);
+          removed++;
+        }
+      }
+    });
+    await db.kv.put({ key: LAST_SYNC_KEY, value: Date.now() });
+    return { added, removed };
+  }, []);
+
+  const pullOnce = useCallback(async () => {
+    try {
+      await pullSync();
+    } catch {
+      /* offline or misconfigured — retry on next trigger */
+    }
+  }, [pullSync]);
+
+  /* Sync now: push queued rows, then pull + merge. */
+  const syncNow = useCallback(async () => {
+    const remaining = await flush();
+    let pulled = { added: 0, removed: 0 };
+    try {
+      pulled = await pullSync();
+    } catch {
+      /* leave remaining; pull can retry next time */
+    }
+    return { remaining, ...pulled };
+  }, [pullSync]);
 
   return {
     data,
@@ -306,6 +400,7 @@ export function useAppData(): AppApi {
     clearAll,
     importBackup,
     setSyncUrl,
+    pullSync,
     syncNow,
   };
 }

@@ -138,8 +138,15 @@ export function MoreTab({ api, showToast }: Props) {
       showToast({ pr: false, text: 'Set a sync endpoint first' });
       return;
     }
-    const remaining = await api.syncNow();
-    showToast({ pr: false, text: remaining === 0 ? 'Synced — queue empty' : `${remaining} rows still queued` });
+    const { remaining, added, removed } = await api.syncNow();
+    const parts: string[] = [];
+    if (added) parts.push(`+${added} pulled`);
+    if (removed) parts.push(`${removed} removed`);
+    if (remaining) parts.push(`${remaining} queued`);
+    showToast({
+      pr: added > 0,
+      text: parts.length ? `Synced · ${parts.join(' · ')}` : 'Synced — up to date',
+    });
   };
 
   const bumpTM = (k: keyof TrainingMaxes, delta: number) =>
@@ -258,10 +265,13 @@ export function MoreTab({ api, showToast }: Props) {
           </button>
         </div>
         <div className="foot">
-          Append-only, one-directional (app → sheet). Every logged set queues a row and flushes when
-          online; deletes and edits do not sync. Set up the endpoint in the target Sheet under
-          Extensions → Apps Script (execute as you, access "anyone with the link"). The URL is the
-          only secret — rotate by redeploying if it ever leaks.
+          Two-way sync through the sheet. Logged sets push to the sheet; the app also pulls and
+          merges on launch and on Sync now, so a fresh device (e.g. desktop) converges to the same
+          log — sets dedupe on id, and deletes propagate as tombstone rows. Sets sync; goals, notes
+          and training maxes stay per-device. Set up the endpoint in the target Sheet under
+          Extensions → Apps Script (execute as you, access "Anyone"); the doGet read-back requires
+          redeploying a new version. The URL is the only secret and grants read of your log — rotate
+          by redeploying if it leaks.
         </div>
       </div>
 

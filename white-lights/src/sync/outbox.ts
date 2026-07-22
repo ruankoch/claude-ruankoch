@@ -24,6 +24,12 @@ export function buildRow(s: SetRow, exName: string, _units: Units): SheetRow {
   ];
 }
 
+/** A tombstone row: source 'delete' marks the id for removal on other devices.
+    Original fields are echoed so the row stays human-readable in the sheet. */
+export function buildTombstoneRow(s: SetRow, exName: string): SheetRow {
+  return [s.date, exName, s.weight, s.reps, s.rpe ?? '', s.miss ? 1 : '', 'delete', s.id];
+}
+
 export async function enqueue(rows: SheetRow[]): Promise<void> {
   if (!rows.length) return;
   await db.outbox.bulkAdd(rows.map((row) => ({ row }) as OutboxRow));
