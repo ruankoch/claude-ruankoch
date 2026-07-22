@@ -6,6 +6,9 @@ import { DEFAULT_EXERCISES, DEFAULT_SETTINGS, DEFAULT_TMS } from '../data/exerci
 import { MEET_HISTORY } from '../data/meetHistory';
 import { sampleSets } from '../data/sample';
 import {
+  buildGoalRow,
+  buildGoalTombstoneRow,
+  buildNoteRow,
   buildTmRow,
   buildTombstoneRow,
   enqueue,
@@ -13,6 +16,7 @@ import {
   flush,
   hasPendingTm,
   LAST_SYNC_KEY,
+  pendingNoteDates,
   SYNC_URL_KEY,
 } from '../sync/outbox';
 import { jsonpGet, parseSheetMatrix } from '../sync/sheetSync';
@@ -180,15 +184,23 @@ export function useAppData(): AppApi {
 
   const addGoal = useCallback(async (goal: Goal) => {
     await db.goals.add(goal);
+    const exs = await db.exercises.toArray();
+    const name = exs.find((e) => e.id === goal.exId)?.name || '';
+    await enqueue([buildGoalRow(goal, name)]);
+    void flush();
   }, []);
 
   const deleteGoal = useCallback(async (id: string) => {
     await db.goals.delete(id);
+    await enqueue([buildGoalTombstoneRow(id)]);
+    void flush();
   }, []);
 
   const setNote = useCallback(async (date: string, text: string) => {
     if (text) await db.notes.put({ date, text });
     else await db.notes.delete(date);
+    await enqueue([buildNoteRow(date, text)]); // empty text propagates a clear
+    void flush();
   }, []);
 
   const setPlan = useCallback(async (key: string | null) => {
@@ -335,25 +347,31 @@ export function useAppData(): AppApi {
     const url = await kvGet<string>(SYNC_URL_KEY, '');
     if (!url) return { added: 0, removed: 0 };
     const matrix = await jsonpGet(url);
-    const { sets: rows, tombstones, tms } = parseSheetMatrix(matrix);
+    const { sets: rows, tombstones, tms, goals: goalRows, goalTombstones, notes: noteMap } =
+      parseSheetMatrix(matrix);
+    const pendingNotes = await pendingNoteDates();
     let added = 0;
     let removed = 0;
-    await db.transaction('rw', [db.exercises, db.sets], async () => {
+    await db.transaction('rw', [db.exercises, db.sets, db.goals, db.notes], async () => {
       const existing = await db.exercises.toArray();
       const byName = new Map<string, string>();
       existing.forEach((e) => byName.set(e.name.trim().toLowerCase(), e.id));
+      const resolveEx = async (name: string): Promise<string> => {
+        const key = name.trim().toLowerCase();
+        let exId = byName.get(key);
+        if (!exId) {
+          exId = uid();
+          byName.set(key, exId);
+          await db.exercises.add({ id: exId, name: name.trim() });
+        }
+        return exId;
+      };
 
       for (const row of rows) {
         const id = row.id;
         if (!id || tombstones.has(id)) continue; // id-less rows can't dedupe; skip
         if (await db.sets.get(id)) continue; // already have it
-        const key = row.name.trim().toLowerCase();
-        let exId = byName.get(key);
-        if (!exId) {
-          exId = uid();
-          byName.set(key, exId);
-          await db.exercises.add({ id: exId, name: row.name.trim() });
-        }
+        const exId = await resolveEx(row.name);
         await db.sets.add({
           id,
           exId,
@@ -376,6 +394,27 @@ export function useAppData(): AppApi {
         if (await db.sets.get(tid)) {
           await db.sets.delete(tid);
           removed++;
+        }
+      }
+
+      // goals: add unseen (matching exercise by name), drop tombstoned ids
+      for (const g of goalRows) {
+        if (goalTombstones.has(g.id) || (await db.goals.get(g.id))) continue;
+        const exId = await resolveEx(g.name);
+        await db.goals.add({ id: g.id, exId, reps: g.reps, weight: g.weight, label: g.label });
+      }
+      for (const gid of goalTombstones) {
+        if (await db.goals.get(gid)) await db.goals.delete(gid);
+      }
+
+      // notes: last-write-wins per date, unless a local edit is still queued
+      for (const [d, text] of noteMap) {
+        if (pendingNotes.has(d)) continue;
+        if (text === '') {
+          await db.notes.delete(d);
+        } else {
+          const cur = await db.notes.get(d);
+          if (!cur || cur.text !== text) await db.notes.put({ date: d, text });
         }
       }
     });

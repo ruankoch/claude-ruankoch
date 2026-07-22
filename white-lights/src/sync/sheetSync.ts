@@ -20,6 +20,14 @@ export interface ParsedSetRow {
   source: 'meet' | 'historic' | '';
 }
 
+export interface ParsedGoalRow {
+  id: string;
+  name: string;
+  reps: number | null;
+  weight: number;
+  label: string | null;
+}
+
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 const cell = (c: unknown): string => (c == null ? '' : String(c).trim());
@@ -68,11 +76,18 @@ export function parseSheetMatrix(matrix: unknown[][]): {
   sets: ParsedSetRow[];
   tombstones: Set<string>;
   tms: TrainingMaxes | null;
+  goals: ParsedGoalRow[];
+  goalTombstones: Set<string>;
+  notes: Map<string, string>;
 } {
   const sets: ParsedSetRow[] = [];
   const tombstones = new Set<string>();
   let tms: TrainingMaxes | null = null;
-  if (!Array.isArray(matrix) || !matrix.length) return { sets, tombstones, tms };
+  const goals: ParsedGoalRow[] = [];
+  const goalTombstones = new Set<string>();
+  const notes = new Map<string, string>();
+  const empty = { sets, tombstones, tms, goals, goalTombstones, notes };
+  if (!Array.isArray(matrix) || !matrix.length) return empty;
 
   const first = (matrix[0] || []).map((c) => cell(c).toLowerCase());
   const start =
@@ -95,6 +110,32 @@ export function parseSheetMatrix(matrix: unknown[][]): {
       if (sq > 0 && bn > 0 && dl > 0) tms = { squat: sq, bench: bn, dead: dl }; // last wins
       continue;
     }
+    if (source === 'goal-delete') {
+      if (id) goalTombstones.add(id);
+      continue;
+    }
+    if (source === 'goal') {
+      const name = cell(r[1]);
+      const weight = parseFloat(cell(r[2]));
+      const repsRaw = cell(r[3]);
+      const reps = repsRaw === '' ? null : parseInt(repsRaw, 10);
+      if (id && name && weight > 0) {
+        goals.push({
+          id,
+          name,
+          reps: reps != null && Number.isFinite(reps) ? reps : null,
+          weight,
+          label: cell(r[4]) || null,
+        });
+      }
+      continue;
+    }
+    if (source === 'note') {
+      const d = cell(r[0]);
+      const text = r[1] == null ? '' : String(r[1]); // keep note text untrimmed
+      if (ISO.test(d)) notes.set(d, text); // last row for a date wins; '' clears
+      continue;
+    }
     const date = cell(r[0]);
     const name = cell(r[1]);
     const weight = parseFloat(cell(r[2]));
@@ -115,5 +156,5 @@ export function parseSheetMatrix(matrix: unknown[][]): {
       source: source === 'meet' ? 'meet' : source === 'historic' || source === 'hist' ? 'historic' : '',
     });
   }
-  return { sets, tombstones, tms };
+  return { sets, tombstones, tms, goals, goalTombstones, notes };
 }

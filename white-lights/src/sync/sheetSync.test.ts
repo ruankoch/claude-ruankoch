@@ -58,6 +58,32 @@ describe('parseSheetMatrix', () => {
     expect(parseSheetMatrix(m).tms).toBeNull();
   });
 
+  it('parses goal rows (blank reps = e1RM) and goal tombstones', () => {
+    const m: unknown[][] = [
+      ['2025-07-01', 'Deadlift', 300, '', 'comp target', '', 'goal', 'g1'],
+      ['2025-07-01', 'Bench Press', 160, 3, '', '', 'goal', 'g2'],
+      ['2025-07-02', '', '', '', '', '', 'goal-delete', 'g9'],
+    ];
+    const { goals, goalTombstones, sets } = parseSheetMatrix(m);
+    expect(sets).toHaveLength(0);
+    expect(goals).toEqual([
+      { id: 'g1', name: 'Deadlift', reps: null, weight: 300, label: 'comp target' },
+      { id: 'g2', name: 'Bench Press', reps: 3, weight: 160, label: null },
+    ]);
+    expect([...goalTombstones]).toEqual(['g9']);
+  });
+
+  it('parses notes last-write-wins per date, empty clears', () => {
+    const m: unknown[][] = [
+      ['2025-07-10', 'felt heavy', '', '', '', '', 'note', '2025-07-10'],
+      ['2025-07-10', 'actually fine after warmup', '', '', '', '', 'note', '2025-07-10'],
+      ['2025-07-11', '', '', '', '', '', 'note', '2025-07-11'],
+    ];
+    const { notes } = parseSheetMatrix(m);
+    expect(notes.get('2025-07-10')).toBe('actually fine after warmup');
+    expect(notes.get('2025-07-11')).toBe('');
+  });
+
   it('ignores malformed rows and empty input', () => {
     expect(parseSheetMatrix([]).sets).toHaveLength(0);
     const m: unknown[][] = [

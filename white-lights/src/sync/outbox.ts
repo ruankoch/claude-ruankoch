@@ -6,7 +6,7 @@ import { db, kvGet, type OutboxRow } from '../db';
 import { postRows, type SheetRow } from './sheets';
 import { uid } from '../derive';
 import { todayStr } from '../dates';
-import type { Exercise, SetRow, TrainingMaxes, Units } from '../types';
+import type { Exercise, Goal, SetRow, TrainingMaxes, Units } from '../types';
 
 export const SYNC_URL_KEY = 'syncUrl';
 export const LAST_SYNC_KEY = 'lastSync';
@@ -43,6 +43,31 @@ export function buildTmRow(tms: TrainingMaxes): SheetRow {
 export async function hasPendingTm(): Promise<boolean> {
   const rows = await db.outbox.toArray();
   return rows.some((r) => r.row[6] === TM_SOURCE);
+}
+
+/* --- goals & notes ---
+   Goals (source 'goal'): exercise NAME resolves the exId on the other device;
+   weight/reps/label ride the weight/reps/rpe columns (blank reps = e1RM).
+   Goal deletes are 'goal-delete' tombstones keyed by goal id.
+   Notes (source 'note'): the date column is the key, the exercise column holds
+   the text; the latest row for a date wins, empty text meaning cleared. */
+
+export function buildGoalRow(g: Goal, exName: string): SheetRow {
+  return [todayStr(), exName, g.weight, g.reps ?? '', g.label ?? '', '', 'goal', g.id];
+}
+
+export function buildGoalTombstoneRow(id: string): SheetRow {
+  return [todayStr(), '', '', '', '', '', 'goal-delete', id];
+}
+
+export function buildNoteRow(date: string, text: string): SheetRow {
+  return [date, text, '', '', '', '', 'note', date];
+}
+
+/** Dates with a still-queued (unsynced) note edit — don't let a pull clobber them. */
+export async function pendingNoteDates(): Promise<Set<string>> {
+  const rows = await db.outbox.toArray();
+  return new Set(rows.filter((r) => r.row[6] === 'note').map((r) => String(r.row[0])));
 }
 
 export async function enqueue(rows: SheetRow[]): Promise<void> {
