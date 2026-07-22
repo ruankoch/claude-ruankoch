@@ -10,7 +10,7 @@ html, body, #root { background: #101214; }
 }
 .loading { padding: 48px; text-align: center; color: #7E858C; font-family: 'IBM Plex Mono', monospace; }
 
-.hdr { padding: 18px 16px 10px; border-bottom: 1px solid #1E2226; }
+.hdr { padding: calc(18px + env(safe-area-inset-top)) 16px 10px; border-bottom: 1px solid #1E2226; }
 .hdr-title {
   font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 24px;
   letter-spacing: 0.12em; display: flex; align-items: center; gap: 10px;
