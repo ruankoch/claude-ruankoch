@@ -104,6 +104,23 @@ export function useAppData(): AppApi {
     void pullOnce();
   }, [seeded]);
 
+  /* pull whenever the app returns to the foreground (tab refocus, iOS resume),
+     so switching back after logging elsewhere quietly refreshes — no tap */
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void flush();
+        void pullOnce();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
+  }, []);
+
   const loaded =
     seeded &&
     exercises !== undefined &&
