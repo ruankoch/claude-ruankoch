@@ -21,7 +21,7 @@ export function buildRow(s: SetRow, exName: string, _units: Units): SheetRow {
     s.reps,
     s.rpe ?? '',
     s.miss ? 1 : '',
-    s.meet ? 'meet' : s.hist ? 'historic' : '',
+    s.meet ? 'meet' : s.hist ? 'historic' : 'workout',
     s.id,
   ];
 }

@@ -25,6 +25,13 @@ describe('parseSheetMatrix', () => {
     expect([...tombstones]).toEqual(['gone']);
   });
 
+  it("treats source 'workout' as a normal set", () => {
+    const m: unknown[][] = [['2025-02-01', 'Bench Press', 100, 5, 8, '', 'workout', 'w1']];
+    const { sets } = parseSheetMatrix(m);
+    expect(sets).toHaveLength(1);
+    expect(sets[0].source).toBe('');
+  });
+
   it('handles header-less matrices and numeric cell types', () => {
     const m: unknown[][] = [['2025-02-01', 'Bench Press', 100, 5, 7.5, '', '', 'x1']];
     const { sets } = parseSheetMatrix(m);

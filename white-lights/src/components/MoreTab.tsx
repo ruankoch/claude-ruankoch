@@ -78,7 +78,7 @@ export function MoreTab({ api, showToast }: Props) {
       .forEach((s) => {
         rows.push([
           s.date, exName(s.exId), s.weight, s.reps, s.rpe ?? '',
-          s.miss ? 1 : '', s.meet ? 'meet' : s.hist ? 'historic' : '', s.id,
+          s.miss ? 1 : '', s.meet ? 'meet' : s.hist ? 'historic' : 'workout', s.id,
         ]);
       });
     download('white-lights-export.csv', rows.map((r) => r.join(',')).join('\n'), 'text/csv');

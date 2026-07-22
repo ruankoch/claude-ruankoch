@@ -6,6 +6,16 @@ import type { Exercise, SetRow, Settings } from '../types';
 const ALL = '__all__';
 const RPE_STEPS: (number | null)[] = [null, 7, 8, 9];
 
+/** Searchable source keywords per set, mirroring the sheet's source column. */
+function srcKeywords(s: SetRow): string {
+  const p: string[] = [];
+  if (s.meet) p.push('meet', 'meets');
+  else if (s.hist) p.push('historic', 'pr entry');
+  else p.push('workout', 'workouts');
+  if (s.miss) p.push('miss', 'missed');
+  return p.join(' ');
+}
+
 interface Props {
   exercises: Exercise[];
   sets: SetRow[];
@@ -89,7 +99,9 @@ export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet }: Pr
     return grouped.filter(
       (sess) =>
         (notes[sess.date] || '').toLowerCase().includes(q) ||
-        sess.sets.some((s) => nameOf(s.exId).toLowerCase().includes(q)),
+        sess.sets.some(
+          (s) => nameOf(s.exId).toLowerCase().includes(q) || srcKeywords(s).includes(q),
+        ),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [grouped, q, notes]);
@@ -135,7 +147,7 @@ export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet }: Pr
       <input
         className="txt"
         style={{ marginBottom: 10 }}
-        placeholder="Search notes & exercises — e.g. belt, tweak, deadlift…"
+        placeholder="Search notes, exercises, source — e.g. belt, deadlift, meets…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
