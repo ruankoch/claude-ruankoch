@@ -222,8 +222,8 @@ export default function App() {
       <nav className="nav">
         {([
           ['log', 'Log'],
-          ['prs', 'PRs'],
           ['history', 'History'],
+          ['prs', 'PRs'],
           ['charts', 'Charts'],
           ['more', 'More'],
         ] as [Tab, string][]).map(([id, label]) => (
