@@ -6,10 +6,12 @@ import { DEFAULT_EXERCISES, DEFAULT_SETTINGS, DEFAULT_TMS } from '../data/exerci
 import { MEET_HISTORY } from '../data/meetHistory';
 import { sampleSets } from '../data/sample';
 import {
+  buildTmRow,
   buildTombstoneRow,
   enqueue,
   enqueueSets,
   flush,
+  hasPendingTm,
   LAST_SYNC_KEY,
   SYNC_URL_KEY,
 } from '../sync/outbox';
@@ -200,7 +202,10 @@ export function useAppData(): AppApi {
 
   const setTMs = useCallback(async (patch: Partial<TrainingMaxes>) => {
     const cur = await kvGet<TrainingMaxes>(TMS_KEY, DEFAULT_TMS);
-    await kvSet(TMS_KEY, { ...cur, ...patch });
+    const next = { ...cur, ...patch };
+    await kvSet(TMS_KEY, next);
+    await enqueue([buildTmRow(next)]); // publish to the sheet for other devices
+    void flush();
   }, []);
 
   const importMeets = useCallback(async (): Promise<number> => {
@@ -330,7 +335,7 @@ export function useAppData(): AppApi {
     const url = await kvGet<string>(SYNC_URL_KEY, '');
     if (!url) return { added: 0, removed: 0 };
     const matrix = await jsonpGet(url);
-    const { sets: rows, tombstones } = parseSheetMatrix(matrix);
+    const { sets: rows, tombstones, tms } = parseSheetMatrix(matrix);
     let added = 0;
     let removed = 0;
     await db.transaction('rw', [db.exercises, db.sets], async () => {
@@ -374,6 +379,16 @@ export function useAppData(): AppApi {
         }
       }
     });
+
+    // Apply the latest training maxes (last-write-wins), unless we have an
+    // unsynced local TM change that hasn't reached the sheet yet.
+    if (tms && !(await hasPendingTm())) {
+      const cur = await kvGet<TrainingMaxes>(TMS_KEY, DEFAULT_TMS);
+      if (cur.squat !== tms.squat || cur.bench !== tms.bench || cur.dead !== tms.dead) {
+        await kvSet(TMS_KEY, tms);
+      }
+    }
+
     await db.kv.put({ key: LAST_SYNC_KEY, value: Date.now() });
     return { added, removed };
   }, []);

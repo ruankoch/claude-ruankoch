@@ -240,6 +240,7 @@ export function MoreTab({ api, showToast }: Props) {
         <div className="foot">
           The programme's competition-lift loads compute live from these. Bump a training max and every
           remaining prescription updates — the same behaviour as the source spreadsheet's linked cells.
+          Training maxes sync across your devices through the sheet (latest change wins).
         </div>
       </div>
 
@@ -267,8 +268,8 @@ export function MoreTab({ api, showToast }: Props) {
         <div className="foot">
           Two-way sync through the sheet. Logged sets push to the sheet; the app also pulls and
           merges on launch and on Sync now, so a fresh device (e.g. desktop) converges to the same
-          log — sets dedupe on id, and deletes propagate as tombstone rows. Sets sync; goals, notes
-          and training maxes stay per-device. Set up the endpoint in the target Sheet under
+          log — sets dedupe on id, and deletes propagate as tombstone rows. Sets and training maxes
+          sync; goals and notes stay per-device. Set up the endpoint in the target Sheet under
           Extensions → Apps Script (execute as you, access "Anyone"); the doGet read-back requires
           redeploying a new version. The URL is the only secret and grants read of your log — rotate
           by redeploying if it leaks.

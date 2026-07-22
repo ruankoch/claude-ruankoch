@@ -7,6 +7,8 @@
    'delete' is a tombstone that removes that id. Merging is just: add sets whose
    id we don't have, drop sets whose id has a tombstone. */
 
+import type { TrainingMaxes } from '../types';
+
 export interface ParsedSetRow {
   id: string | null;
   name: string;
@@ -58,15 +60,19 @@ export function jsonpGet(url: string, timeoutMs = 20000): Promise<unknown[][]> {
   });
 }
 
-/** Split a sheet matrix (row arrays, header optional) into sets + tombstone ids.
-    Columns are positional: date, exercise, weight, reps, rpe, miss, source, id. */
+/** Split a sheet matrix (row arrays, header optional) into sets, tombstone ids,
+    and the latest training-maxes row. Columns are positional:
+    date, exercise, weight, reps, rpe, miss, source, id.
+    Training-maxes rows use source 'tm' with squat/bench/dead in weight/reps/rpe. */
 export function parseSheetMatrix(matrix: unknown[][]): {
   sets: ParsedSetRow[];
   tombstones: Set<string>;
+  tms: TrainingMaxes | null;
 } {
   const sets: ParsedSetRow[] = [];
   const tombstones = new Set<string>();
-  if (!Array.isArray(matrix) || !matrix.length) return { sets, tombstones };
+  let tms: TrainingMaxes | null = null;
+  if (!Array.isArray(matrix) || !matrix.length) return { sets, tombstones, tms };
 
   const first = (matrix[0] || []).map((c) => cell(c).toLowerCase());
   const start =
@@ -80,6 +86,13 @@ export function parseSheetMatrix(matrix: unknown[][]): {
     const id = cell(r[7]);
     if (source === 'delete') {
       if (id) tombstones.add(id);
+      continue;
+    }
+    if (source === 'tm') {
+      const sq = parseFloat(cell(r[2]));
+      const bn = parseFloat(cell(r[3]));
+      const dl = parseFloat(cell(r[4]));
+      if (sq > 0 && bn > 0 && dl > 0) tms = { squat: sq, bench: bn, dead: dl }; // last wins
       continue;
     }
     const date = cell(r[0]);
@@ -102,5 +115,5 @@ export function parseSheetMatrix(matrix: unknown[][]): {
       source: source === 'meet' ? 'meet' : source === 'historic' || source === 'hist' ? 'historic' : '',
     });
   }
-  return { sets, tombstones };
+  return { sets, tombstones, tms };
 }

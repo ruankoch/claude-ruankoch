@@ -4,7 +4,9 @@
 
 import { db, kvGet, type OutboxRow } from '../db';
 import { postRows, type SheetRow } from './sheets';
-import type { Exercise, SetRow, Units } from '../types';
+import { uid } from '../derive';
+import { todayStr } from '../dates';
+import type { Exercise, SetRow, TrainingMaxes, Units } from '../types';
 
 export const SYNC_URL_KEY = 'syncUrl';
 export const LAST_SYNC_KEY = 'lastSync';
@@ -28,6 +30,19 @@ export function buildRow(s: SetRow, exName: string, _units: Units): SheetRow {
     Original fields are echoed so the row stays human-readable in the sheet. */
 export function buildTombstoneRow(s: SetRow, exName: string): SheetRow {
   return [s.date, exName, s.weight, s.reps, s.rpe ?? '', s.miss ? 1 : '', 'delete', s.id];
+}
+
+/** A training-maxes row (source 'tm'): squat/bench/dead ride the weight/reps/rpe
+    columns. The latest such row in the sheet wins (append order = write order). */
+export const TM_SOURCE = 'tm';
+export function buildTmRow(tms: TrainingMaxes): SheetRow {
+  return [todayStr(), 'Training maxes', tms.squat, tms.bench, tms.dead, '', TM_SOURCE, 'tm-' + uid()];
+}
+
+/** True if a training-maxes change is still queued (unsynced) locally. */
+export async function hasPendingTm(): Promise<boolean> {
+  const rows = await db.outbox.toArray();
+  return rows.some((r) => r.row[6] === TM_SOURCE);
 }
 
 export async function enqueue(rows: SheetRow[]): Promise<void> {
