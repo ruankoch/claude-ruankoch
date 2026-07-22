@@ -46,6 +46,7 @@ export interface AppApi {
   selectedExId: string;
   setSelectedExId: (id: string) => Promise<void>;
   addExercise: (name: string) => string;
+  deleteExercise: (id: string) => Promise<number>;
   addSet: (set: SetRow) => Promise<void>;
   addHistoric: (set: SetRow) => Promise<void>;
   deleteSet: (id: string) => Promise<void>;
@@ -161,6 +162,30 @@ export function useAppData(): AppApi {
     const ex = { id: uid(), name: name.trim() };
     void db.exercises.add(ex);
     return ex.id;
+  }, []);
+
+  /* Delete an exercise and everything under it: its sets (each tombstoned so
+     other devices drop them) and its goals. Returns the set count removed. */
+  const deleteExercise = useCallback(async (id: string): Promise<number> => {
+    const exSets = await db.sets.where('exId').equals(id).toArray();
+    const exGoals = await db.goals.where('exId').equals(id).toArray();
+    const ex = await db.exercises.get(id);
+    const name = ex?.name || '';
+    await db.transaction('rw', [db.sets, db.goals, db.exercises], async () => {
+      await db.sets.where('exId').equals(id).delete();
+      await db.goals.where('exId').equals(id).delete();
+      await db.exercises.delete(id);
+    });
+    const tombs = [
+      ...exSets.map((s) => buildTombstoneRow(s, name)),
+      ...exGoals.map((g) => buildGoalTombstoneRow(g.id)),
+    ];
+    if (tombs.length) {
+      await enqueue(tombs);
+      void flush();
+    }
+    if ((await kvGet<string>(SELECTED_EX_KEY, '')) === id) await kvSet(SELECTED_EX_KEY, '');
+    return exSets.length;
   }, []);
 
   const persistAndSync = useCallback(async (rows: SetRow[]) => {
@@ -467,6 +492,7 @@ export function useAppData(): AppApi {
     selectedExId: selectedExId ?? '',
     setSelectedExId,
     addExercise,
+    deleteExercise,
     addSet,
     addHistoric,
     deleteSet,

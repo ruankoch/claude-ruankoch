@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { fmtClock } from '../dates';
 import type { AppApi } from '../hooks/useAppData';
 import type { Settings, TrainingMaxes } from '../types';
@@ -59,10 +59,34 @@ export function MoreTab({ api, showToast }: Props) {
   const { settings, tms } = data;
   const [confirmClear, setConfirmClear] = useState(false);
   const [urlDraft, setUrlDraft] = useState(sync.url);
+  const [armedEx, setArmedEx] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const setSettings = (patch: Partial<Settings>) => void api.setSettings(patch);
   const step = settings.units === 'lb' ? 5 : 2.5;
+
+  const setCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    data.sets.forEach((s) => {
+      m[s.exId] = (m[s.exId] || 0) + 1;
+    });
+    return m;
+  }, [data.sets]);
+  const exSorted = useMemo(
+    () => [...data.exercises].sort((a, b) => a.name.localeCompare(b.name)),
+    [data.exercises],
+  );
+
+  const delExercise = async (id: string, name: string) => {
+    if (armedEx !== id) {
+      setArmedEx(id);
+      setTimeout(() => setArmedEx((cur) => (cur === id ? null : cur)), 3500);
+      return;
+    }
+    setArmedEx(null);
+    const n = await api.deleteExercise(id);
+    showToast({ pr: false, text: `Deleted ${name}${n ? ` · ${n} set${n === 1 ? '' : 's'} removed` : ''}` });
+  };
 
   const exportJSON = () => {
     download('white-lights-export.json', JSON.stringify(data, null, 2), 'application/json');
@@ -273,6 +297,33 @@ export function MoreTab({ api, showToast }: Props) {
           Extensions → Apps Script (execute as you, access "Anyone"); the doGet read-back requires
           redeploying a new version. The URL is the only secret and grants read of your log — rotate
           by redeploying if it leaks.
+        </div>
+      </div>
+
+      <div className="sect">Exercises</div>
+      <div className="card">
+        {exSorted.map((ex) => {
+          const count = setCounts[ex.id] || 0;
+          const armed = armedEx === ex.id;
+          return (
+            <div className="setrow2" key={ex.id}>
+              <span className="lbl">
+                {ex.name}
+                <span className="unit">
+                  {' '}
+                  {count} set{count === 1 ? '' : 's'}
+                </span>
+              </span>
+              <button className={'exdel' + (armed ? ' armed' : '')} onClick={() => delExercise(ex.id, ex.name)}>
+                {armed ? 'Tap to confirm' : 'Delete'}
+              </button>
+            </div>
+          );
+        })}
+        <div className="foot">
+          Deleting a lift removes it and its logged sets — the sets are tombstoned so they clear on
+          your other devices on the next sync. Goals for the lift are removed too. This can't be
+          undone (export a backup first if unsure).
         </div>
       </div>
 

@@ -321,6 +321,13 @@ html, body, #root { background: #101214; }
 
 .btncol { display: flex; flex-direction: column; gap: 9px; }
 
+.exdel {
+  flex: 0 0 auto; padding: 7px 13px; border-radius: 9px; border: 1px solid #55302E;
+  background: transparent; color: #D89490; font-family: 'Barlow', sans-serif;
+  font-size: 13px; cursor: pointer; white-space: nowrap;
+}
+.exdel.armed { background: #D23B33; border-color: #D23B33; color: #fff; font-weight: 600; }
+
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%);
   bottom: calc(88px + env(safe-area-inset-bottom));
