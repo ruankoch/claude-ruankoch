@@ -151,10 +151,13 @@ export function LogTab({
 
         {isDb && wNum > 0 && (
           <div className="platestrip">
-            <span className="plates-label">dumbbell</span>
+            <span className="plates-label">
+              dumbbell · {wNum}
+              {settings.units} total
+            </span>
             <div className="plates">
               <span className="platechip dbchip">
-                {wNum}
+                {round1(wNum / 2)}
                 {settings.units} /hand
               </span>
             </div>
