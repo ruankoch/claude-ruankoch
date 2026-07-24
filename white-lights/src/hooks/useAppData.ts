@@ -9,6 +9,7 @@ import {
   buildGoalRow,
   buildGoalTombstoneRow,
   buildNoteRow,
+  buildRow,
   buildTmRow,
   buildTombstoneRow,
   enqueue,
@@ -24,6 +25,7 @@ import type {
   AppData,
   BackupBlob,
   Goal,
+  SetPatch,
   SetRow,
   Settings,
   TrainingMaxes,
@@ -49,6 +51,7 @@ export interface AppApi {
   deleteExercise: (id: string) => Promise<number>;
   addSet: (set: SetRow) => Promise<void>;
   addHistoric: (set: SetRow) => Promise<void>;
+  updateSet: (id: string, patch: SetPatch) => Promise<void>;
   deleteSet: (id: string) => Promise<void>;
   addGoal: (goal: Goal) => Promise<void>;
   deleteGoal: (id: string) => Promise<void>;
@@ -198,6 +201,39 @@ export function useAppData(): AppApi {
 
   const addSet = useCallback((set: SetRow) => persistAndSync([set]), [persistAndSync]);
   const addHistoric = useCallback((set: SetRow) => persistAndSync([set]), [persistAndSync]);
+
+  /* Edit a set. Append-only sync can't mutate a row, so an edit is a replace:
+     tombstone the old id and insert a new set (new id, same createdAt so it
+     keeps its logging-order position) carrying the edited values. */
+  const updateSet = useCallback(
+    async (id: string, patch: SetPatch) => {
+      const old = await db.sets.get(id);
+      if (!old) return;
+      const miss = patch.miss !== undefined ? patch.miss : old.miss;
+      const updated: SetRow = {
+        id: uid(),
+        exId: patch.exId ?? old.exId,
+        date: patch.date ?? old.date,
+        weight: patch.weight ?? old.weight,
+        reps: patch.reps ?? old.reps,
+        rpe: patch.rpe !== undefined ? patch.rpe : old.rpe,
+        createdAt: old.createdAt ?? Date.now(),
+        ...(miss ? { miss: true as const } : {}),
+        ...(old.hist ? { hist: true as const } : {}),
+        ...(old.meet ? { meet: true as const } : {}),
+      };
+      const exs = await db.exercises.toArray();
+      const nameOf = (exId: string) => exs.find((e) => e.id === exId)?.name || '';
+      await db.transaction('rw', db.sets, async () => {
+        await db.sets.delete(id);
+        await db.sets.add(updated);
+      });
+      const units = await currentUnits();
+      await enqueue([buildTombstoneRow(old, nameOf(old.exId)), buildRow(updated, nameOf(updated.exId), units)]);
+      void flush();
+    },
+    [],
+  );
 
   const deleteSet = useCallback(async (id: string) => {
     const s = await db.sets.get(id);
@@ -497,6 +533,7 @@ export function useAppData(): AppApi {
     deleteExercise,
     addSet,
     addHistoric,
+    updateSet,
     deleteSet,
     addGoal,
     deleteGoal,

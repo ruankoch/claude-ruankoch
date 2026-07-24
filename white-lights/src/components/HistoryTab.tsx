@@ -22,9 +22,10 @@ interface Props {
   settings: Settings;
   notes: Record<string, string>;
   onDeleteSet: (id: string) => void;
+  onEditSet: (set: SetRow) => void;
 }
 
-export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet }: Props) {
+export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet, onEditSet }: Props) {
   const [exId, setExId] = useState<string>(ALL);
   const [rangeWks, setRangeWks] = useState(0); // 0 = all time
   const [madeOnly, setMadeOnly] = useState(false);
@@ -247,7 +248,7 @@ export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet }: Pr
           {sess.sets.map((s) => (
             <div key={s.id} className={'hist-row' + (s.miss ? ' missed' : '')}>
               <span className="repdot" style={{ background: s.miss ? '#565C62' : colorForReps(s.reps) }} />
-              <span className="hist-main">
+              <button className="hist-main asbtn" onClick={() => onEditSet(s)}>
                 {exId === ALL && <span className="hist-ex">{nameOf(s.exId)} </span>}
                 <span className="hist-num">
                   {s.miss && <span className="missx">✗ </span>}
@@ -261,7 +262,7 @@ export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet }: Pr
                 ) : s.hist ? (
                   <span className="hist-tag"> · pr entry</span>
                 ) : null}
-              </span>
+              </button>
               <span className="hist-e1">{!s.miss ? round1(e1rm(s.weight, s.reps, s.rpe, settings)) : ''}</span>
               <button className="del" onClick={() => onDeleteSet(s.id)} aria-label="Delete set">
                 ✕

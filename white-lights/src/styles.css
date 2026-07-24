@@ -165,6 +165,11 @@ html, body, #root { background: #101214; }
   padding: 11px 13px; margin-bottom: 8px;
 }
 .setrow-main { display: flex; flex-direction: column; gap: 1px; }
+.asbtn {
+  background: none; border: none; padding: 0; margin: 0; text-align: left;
+  color: inherit; font: inherit; cursor: pointer; min-width: 0;
+}
+.platechip.dbchip { background: #2A2E33; color: #EDEDE8; height: auto; padding: 5px 10px; }
 .set-ex { color: #7E858C; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; }
 .set-num { font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 500; }
 .del { background: none; border: none; color: #565C62; font-size: 15px; padding: 8px; cursor: pointer; }
@@ -375,6 +380,32 @@ html, body, #root { background: #101214; }
 .hist-row { display: flex; align-items: center; gap: 8px; padding: 7px 2px; border-top: 1px solid #1B1F23; }
 .hist-row:first-of-type { margin-top: 6px; }
 .hist-main { flex: 1; min-width: 0; }
+.hist-main.asbtn { display: block; }
+
+/* set edit modal (bottom sheet) */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, 0.62);
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: fade 160ms ease-out;
+}
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .modal-overlay { animation: none; } }
+.modal-card {
+  width: 100%; max-width: 560px; background: #101214; border-top: 1px solid #22262B;
+  border-radius: 18px 18px 0 0; padding: 10px 16px calc(18px + env(safe-area-inset-bottom));
+  max-height: 92vh; overflow-y: auto; box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5);
+  animation: sheet 200ms ease-out;
+}
+@keyframes sheet { from { transform: translateY(24px); } to { transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .modal-card { animation: none; } }
+.modal-grip {
+  width: 38px; height: 4px; border-radius: 2px; background: #2A2E33;
+  margin: 4px auto 12px;
+}
+.modal-del {
+  display: block; width: 100%; text-align: center; background: none; border: none;
+  color: #A8817D; font-size: 13px; padding: 12px 0 2px; cursor: pointer;
+}
 .hist-ex { color: #7E858C; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; }
 .hist-num { font-family: 'IBM Plex Mono', monospace; font-size: 14px; }
 .hist-e1 { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #7E858C; min-width: 44px; text-align: right; }

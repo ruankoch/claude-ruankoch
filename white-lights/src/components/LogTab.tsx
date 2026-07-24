@@ -4,7 +4,7 @@ import { ProgramCard } from './ProgramCard';
 import { PlateStrip } from './PlateStrip';
 import { resolveProgramExercise, type ProgramItem } from '../program';
 import {
-  goalBest, goalName, loadOffset, perSideText, round1, uid, warmupRamp,
+  goalBest, goalName, isDumbbell, loadOffset, perSideText, round1, uid, warmupRamp,
 } from '../derive';
 import { fmtDateFull, todayStr } from '../dates';
 import type { Exercise, Goal, SetRow, Settings, TrainingMaxes } from '../types';
@@ -19,6 +19,7 @@ interface Props {
   plan: string | null;
   onAddSet: (set: SetRow) => void;
   onDeleteSet: (id: string) => void;
+  onEditSet: (set: SetRow) => void;
   onAddExercise: (name: string) => string;
   onSetNote: (date: string, text: string) => void;
   onSetPlan: (key: string | null) => void;
@@ -28,7 +29,7 @@ const RPE_OPTS: (number | null)[] = [null, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10];
 
 export function LogTab({
   exercises, sets, settings, tms, goals, notes, plan,
-  onAddSet, onDeleteSet, onAddExercise, onSetNote, onSetPlan,
+  onAddSet, onDeleteSet, onEditSet, onAddExercise, onSetNote, onSetPlan,
 }: Props) {
   const [exId, setExId] = useState(exercises[0]?.id || '');
   const [date, setDate] = useState(todayStr());
@@ -46,7 +47,9 @@ export function LogTab({
 
   const lastForEx = useMemo(() => {
     const mine = sets.filter((s) => s.exId === exId);
-    return mine.length ? mine[mine.length - 1] : null;
+    if (!mine.length) return null;
+    // the most recently logged set, not an arbitrary DB-order row
+    return mine.reduce((a, b) => ((b.createdAt ?? 0) > (a.createdAt ?? 0) ? b : a));
   }, [sets, exId]);
 
   const bump = (delta: number) => {
@@ -87,6 +90,7 @@ export function LogTab({
   const exName = (id: string) => exercises.find((e) => e.id === id)?.name || '?';
   const wNum = parseFloat(weight);
   const offset = loadOffset(settings.units, settings.collars);
+  const isDb = isDumbbell(exName(exId));
 
   return (
     <div>
@@ -141,11 +145,23 @@ export function LogTab({
           </div>
         </div>
 
-        {settings.plates !== false && wNum > offset && (
+        {settings.plates !== false && !isDb && wNum > offset && (
           <PlateStrip total={wNum} units={settings.units} collars={settings.collars} />
         )}
 
-        {wNum > offset && (
+        {isDb && wNum > 0 && (
+          <div className="platestrip">
+            <span className="plates-label">dumbbell</span>
+            <div className="plates">
+              <span className="platechip dbchip">
+                {wNum}
+                {settings.units} /hand
+              </span>
+            </div>
+          </div>
+        )}
+
+        {!isDb && wNum > offset && (
           <div className="warmwrap">
             <button className="warmlink" onClick={() => setShowWarm((v) => !v)}>
               {showWarm ? '▾ Warm-up ramp' : '▸ Warm-up ramp'}
@@ -229,7 +245,7 @@ export function LogTab({
         .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0) || a.id.localeCompare(b.id))
         .map((s) => (
         <div key={s.id} className={'setrow' + (s.miss ? ' missed' : '')}>
-          <div className="setrow-main">
+          <button className="setrow-main asbtn" onClick={() => onEditSet(s)}>
             <span className="set-ex">
               {exName(s.exId)}
               {s.miss ? ' · miss' : ''}
@@ -241,7 +257,7 @@ export function LogTab({
               {settings.units} × {s.reps}
               {s.rpe != null ? ` @${s.rpe}` : ''}
             </span>
-          </div>
+          </button>
           <button className="del" onClick={() => onDeleteSet(s.id)}>✕</button>
         </div>
       ))}

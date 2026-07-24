@@ -7,6 +7,10 @@ import type { Exercise, Goal, SetRow, Settings, Units } from './types';
 
 export const round1 = (x: number): number => Math.round(x * 10) / 10;
 
+/** True for dumbbell movements — "DB" as a word, or dumbbell/dumbell spellings.
+    These skip barbell plate math and show a per-hand readout instead. */
+export const isDumbbell = (name: string): boolean => /\bdb\b|dumbb?ell/i.test(name || '');
+
 /** Resolve a stored selection to a valid exercise id, falling back to the first
     (e.g. when nothing is selected yet or the selected lift was deleted). */
 export function resolveExId(selected: string, exercises: Exercise[]): string {

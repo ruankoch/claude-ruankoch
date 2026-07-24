@@ -8,6 +8,7 @@ import { HistoryTab } from './components/HistoryTab';
 import { ChartTab } from './components/ChartTab';
 import { MoreTab } from './components/MoreTab';
 import { RestTimerBar, type TimerState } from './components/RestTimer';
+import { SetEditModal } from './components/SetEditModal';
 import type { SetRow } from './types';
 
 type Tab = 'log' | 'prs' | 'history' | 'charts' | 'more';
@@ -21,6 +22,7 @@ export default function App() {
 
   const [tab, setTab] = useState<Tab>('log');
   const [toast, setToast] = useState<Toast | null>(null);
+  const [editing, setEditing] = useState<SetRow | null>(null);
 
   /* rest timer — clock-based (endsAt) so it self-corrects on return */
   const [timer, setTimer] = useState<TimerState | null>(null);
@@ -167,7 +169,8 @@ export default function App() {
           <LogTab
             exercises={orderedExercises} sets={sets} settings={settings} tms={data.tms} goals={goals}
             notes={data.notes} plan={data.plan}
-            onAddSet={addSet} onDeleteSet={api.deleteSet} onAddExercise={api.addExercise}
+            onAddSet={addSet} onDeleteSet={api.deleteSet} onEditSet={setEditing}
+            onAddExercise={api.addExercise}
             onSetNote={api.setNote} onSetPlan={api.setPlan}
           />
         )}
@@ -186,6 +189,7 @@ export default function App() {
             settings={settings}
             notes={data.notes}
             onDeleteSet={api.deleteSet}
+            onEditSet={setEditing}
           />
         )}
         {tab === 'charts' && (
@@ -208,6 +212,25 @@ export default function App() {
           )}
           <span>{toast.text}</span>
         </div>
+      )}
+
+      {editing && (
+        <SetEditModal
+          set={editing}
+          exercises={orderedExercises}
+          settings={settings}
+          onSave={(patch) => {
+            void api.updateSet(editing.id, patch);
+            setEditing(null);
+            showToast({ pr: false, text: 'Set updated' });
+          }}
+          onDelete={() => {
+            void api.deleteSet(editing.id);
+            setEditing(null);
+            showToast({ pr: false, text: 'Set deleted' });
+          }}
+          onClose={() => setEditing(null)}
+        />
       )}
 
       {timer && (

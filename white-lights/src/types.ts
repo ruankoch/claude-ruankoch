@@ -21,6 +21,16 @@ export interface Exercise {
   name: string;
 }
 
+/** Editable fields of a set (used by the edit modal / updateSet). */
+export interface SetPatch {
+  exId?: string;
+  date?: string;
+  weight?: number;
+  reps?: number;
+  rpe?: number | null;
+  miss?: boolean;
+}
+
 export interface Goal {
   id: string;
   exId: string;
