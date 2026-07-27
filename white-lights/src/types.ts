@@ -11,6 +11,7 @@ export interface SetRow {
   reps: number;
   rpe: number | null;
   miss?: true;
+  warmup?: true; // logged but not counted as a working set
   hist?: true; // backdated PR entry
   meet?: true; // competition attempt
   createdAt?: number; // Date.now(), for sync ordering
@@ -29,6 +30,7 @@ export interface SetPatch {
   reps?: number;
   rpe?: number | null;
   miss?: boolean;
+  warmup?: boolean;
 }
 
 export interface Goal {

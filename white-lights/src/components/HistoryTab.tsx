@@ -11,6 +11,7 @@ function srcKeywords(s: SetRow): string {
   const p: string[] = [];
   if (s.meet) p.push('meet', 'meets');
   else if (s.hist) p.push('historic', 'pr entry');
+  else if (s.warmup) p.push('warmup', 'warm-up', 'warm up');
   else p.push('workout', 'workouts');
   if (s.miss) p.push('miss', 'missed');
   return p.join(' ');
@@ -113,7 +114,7 @@ export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet, onEd
     const m: Record<number, number> = {};
     if (exId === ALL) return m;
     sets
-      .filter((s) => s.exId === exId && !s.miss)
+      .filter((s) => s.exId === exId && !s.miss && !s.warmup)
       .forEach((s) => {
         if (!m[s.reps] || s.weight > m[s.reps]) m[s.reps] = s.weight;
       });
@@ -256,7 +257,10 @@ export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet, onEd
                   {settings.units} × {s.reps}
                   {s.rpe != null ? ` @${s.rpe}` : ''}
                 </span>
-                {!s.miss && exId !== ALL && bestAtRep[s.reps] === s.weight && <span className="hist-pr"> ★</span>}
+                {!s.miss && !s.warmup && exId !== ALL && bestAtRep[s.reps] === s.weight && (
+                  <span className="hist-pr"> ★</span>
+                )}
+                {s.warmup && <span className="hist-tag"> · warm-up</span>}
                 {s.meet ? (
                   <span className="hist-tag"> · meet</span>
                 ) : s.hist ? (

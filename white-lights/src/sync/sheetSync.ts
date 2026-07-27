@@ -17,6 +17,7 @@ export interface ParsedSetRow {
   reps: number;
   rpe: number | null;
   miss: boolean;
+  warmup: boolean;
   source: 'meet' | 'historic' | '';
 }
 
@@ -201,6 +202,7 @@ export function parseSheetMatrix(matrix: unknown[][]): {
       reps,
       rpe: Number.isFinite(rpeNum) ? rpeNum : null,
       miss: ['1', 'true', 'miss', 'x', 'yes', 'y'].includes(missRaw),
+      warmup: source === 'warmup' || source === 'warm-up' || source === 'warmup-set',
       source: source === 'meet' ? 'meet' : source === 'historic' || source === 'hist' ? 'historic' : '',
     });
   }

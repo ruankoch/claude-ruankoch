@@ -21,16 +21,14 @@ export function ProgramCard({
   const days = active?.days ?? PROGRAM.days;
   const day = days.find((d) => d.key === plan) || null;
 
+  // Count working sets for the lift on this date, regardless of weight (you
+  // auto-regulate), excluding warm-ups and misses.
   const doneFor = (item: ProgramItem): number => {
     const found = resolveProgramExercise(item, exercises);
     if (!found) return 0;
-    const todays = sets.filter((s) => s.exId === found.id && s.date === date && !s.miss);
-    const load = computeLoad(item, tms);
-    if (load != null) {
-      const tol = Math.max(2.5, load * 0.03);
-      return todays.filter((s) => Math.abs(s.weight - load) <= tol).length;
-    }
-    return todays.length;
+    return sets.filter(
+      (s) => s.exId === found.id && s.date === date && !s.miss && !s.warmup,
+    ).length;
   };
 
   return (

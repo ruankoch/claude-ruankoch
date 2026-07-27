@@ -263,6 +263,7 @@ export function useAppData(): AppApi {
       const old = await db.sets.get(id);
       if (!old) return;
       const miss = patch.miss !== undefined ? patch.miss : old.miss;
+      const warmup = patch.warmup !== undefined ? patch.warmup : old.warmup;
       const updated: SetRow = {
         id: uid(),
         exId: patch.exId ?? old.exId,
@@ -272,6 +273,7 @@ export function useAppData(): AppApi {
         rpe: patch.rpe !== undefined ? patch.rpe : old.rpe,
         createdAt: old.createdAt ?? Date.now(),
         ...(miss ? { miss: true as const } : {}),
+        ...(warmup ? { warmup: true as const } : {}),
         ...(old.hist ? { hist: true as const } : {}),
         ...(old.meet ? { meet: true as const } : {}),
       };
@@ -549,6 +551,7 @@ export function useAppData(): AppApi {
           rpe: row.rpe,
           createdAt: pulledSeq++,
           ...(row.miss ? { miss: true as const } : {}),
+          ...(row.warmup ? { warmup: true as const } : {}),
           ...(row.source === 'meet'
             ? { hist: true as const, meet: true as const }
             : row.source === 'historic'

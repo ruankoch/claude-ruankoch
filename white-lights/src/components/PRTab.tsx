@@ -25,7 +25,7 @@ export function PRTab({
 }: Props) {
   const exId = resolveExId(selectedExId, exercises);
 
-  const mine = sets.filter((s) => s.exId === exId && !s.miss);
+  const mine = sets.filter((s) => s.exId === exId && !s.miss && !s.warmup);
 
   const matrix = useMemo(() => {
     if (!mine.length) return [];

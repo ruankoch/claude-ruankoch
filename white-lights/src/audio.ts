@@ -18,20 +18,24 @@ export function ensureAudio(): void {
 
 export function beepThree(): void {
   try {
+    ensureAudio(); // resume if the context was suspended during the rest
     if (!audioCtx) return;
     const t0 = audioCtx.currentTime + 0.02;
-    [0, 0.24, 0.48].forEach((off, i) => {
+    // short ascending chime — clear and noticeable when rest runs out
+    const notes = [660, 880, 1175];
+    notes.forEach((freq, i) => {
+      const off = i * 0.18;
       const o = audioCtx!.createOscillator();
       const g = audioCtx!.createGain();
       o.type = 'sine';
-      o.frequency.value = i === 2 ? 1046 : 880;
+      o.frequency.value = freq;
       g.gain.setValueAtTime(0.0001, t0 + off);
-      g.gain.exponentialRampToValueAtTime(0.28, t0 + off + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + off + 0.2);
+      g.gain.exponentialRampToValueAtTime(0.42, t0 + off + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + off + 0.24);
       o.connect(g);
       g.connect(audioCtx!.destination);
       o.start(t0 + off);
-      o.stop(t0 + off + 0.22);
+      o.stop(t0 + off + 0.26);
     });
   } catch {
     /* ignore */

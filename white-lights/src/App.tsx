@@ -100,10 +100,10 @@ export default function App() {
 
   /* addSet: PR detection BEFORE insert, then persist + auto-start rest timer */
   const addSet = (set: SetRow) => {
-    const prev = sets.filter((s) => s.exId === set.exId && !s.miss);
+    const prev = sets.filter((s) => s.exId === set.exId && !s.miss && !s.warmup);
     const bits: string[] = [];
 
-    if (!set.miss) {
+    if (!set.miss && !set.warmup) {
       const prevAtReps = prev.filter((s) => s.reps === set.reps);
       const bestAtReps = prevAtReps.length ? Math.max(...prevAtReps.map((s) => s.weight)) : null;
       const prevBestE = prev.length ? Math.max(...prev.map((s) => e1rm(s.weight, s.reps, s.rpe, settings))) : null;
@@ -120,16 +120,20 @@ export default function App() {
 
     void api.addSet(set);
 
-    // auto-start rest timer (log tap is the gesture that unlocks audio)
+    // unlock audio on the log tap; auto-start the rest timer for working sets
     ensureAudio();
     requestNotifPermission();
-    const restSec = settings.restSec || 180;
-    setTimer({ endsAt: Date.now() + restSec * 1000, total: restSec });
-    setNow(Date.now());
+    if (!set.warmup) {
+      const restSec = settings.restSec || 180;
+      setTimer({ endsAt: Date.now() + restSec * 1000, total: restSec });
+      setNow(Date.now());
+    }
 
     const exName = exercises.find((e) => e.id === set.exId)?.name || '';
     if (set.miss) {
       showToast({ pr: false, text: `Miss logged — ${set.weight}${settings.units} × ${set.reps}` });
+    } else if (set.warmup) {
+      showToast({ pr: false, text: `Warm-up logged — ${set.weight}${settings.units} × ${set.reps}` });
     } else if (bits.length) {
       showToast({ pr: true, text: `${exName} — ${bits.join(' · ')}` });
     } else {

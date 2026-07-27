@@ -38,6 +38,7 @@ export function LogTab({
   const [reps, setReps] = useState(5);
   const [rpe, setRpe] = useState<number | null>(null);
   const [miss, setMiss] = useState(false);
+  const [warmup, setWarmup] = useState(false);
   const [showWarm, setShowWarm] = useState(false);
 
   useEffect(() => {
@@ -67,8 +68,10 @@ export function LogTab({
     onAddSet({
       id: uid(), exId, date, weight: parseFloat(weight), reps, rpe,
       miss: miss || undefined,
+      warmup: warmup || undefined,
     });
     setMiss(false);
+    // warm-up toggle stays put — flick it back to Working when you start work sets
   };
 
   const prefillFromProgram = (item: ProgramItem, load: number | null) => {
@@ -220,13 +223,31 @@ export function LogTab({
           </div>
         </div>
 
+        <div className="fieldrow">
+          <label className="lbl">Set type</label>
+          <div className="seg">
+            <button
+              className={'seg-btn' + (!warmup ? ' on' : '')}
+              onClick={() => setWarmup(false)}
+            >
+              Working
+            </button>
+            <button
+              className={'seg-btn' + (warmup ? ' on' : '')}
+              onClick={() => setWarmup(true)}
+            >
+              Warm-up
+            </button>
+          </div>
+        </div>
+
         <div className="actions">
           <button
             className={'btn primary' + (miss ? ' missarmed' : '')}
             disabled={!canLog}
             onClick={log}
           >
-            {miss ? 'Log miss ✗' : 'Log set'}
+            {miss ? 'Log miss ✗' : warmup ? 'Log warm-up' : 'Log set'}
           </button>
           <button className="btn ghost" disabled={!lastForEx} onClick={repeatLast}>
             {lastForEx ? `Repeat ${lastForEx.weight}×${lastForEx.reps}` : 'Repeat last'}
@@ -254,6 +275,7 @@ export function LogTab({
             <span className="set-ex">
               {exName(s.exId)}
               {s.miss ? ' · miss' : ''}
+              {s.warmup ? ' · warm-up' : ''}
               {s.meet ? ' · meet' : s.hist ? ' · pr entry' : ''}
             </span>
             <span className="set-num">

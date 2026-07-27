@@ -72,7 +72,7 @@ function LiftChart({ exercises, sets, settings, goals, selectedExId, onSelectEx 
   const [selReps, setSelReps] = useState<number[] | null>(null);
   const exId = resolveExId(selectedExId, exercises);
 
-  const mine = sets.filter((s) => s.exId === exId && !s.miss);
+  const mine = sets.filter((s) => s.exId === exId && !s.miss && !s.warmup);
   const exGoals = goals.filter((g) => g.exId === exId);
 
   const repCounts = useMemo(() => {
@@ -266,7 +266,7 @@ function VolumeView({ exercises, sets, settings, rangeWks, selectedExId, onSelec
   const rows = useMemo(() => {
     const byWeek: Record<string, Record<string, number | string>> = {};
     sets.forEach((s) => {
-      if (s.miss) return;
+      if (s.miss || s.warmup) return;
       if (cutoff && s.date < cutoff) return;
       if (scope === 'lift' && s.exId !== exId) return;
       const wk = weekStart(s.date);
@@ -284,7 +284,7 @@ function VolumeView({ exercises, sets, settings, rangeWks, selectedExId, onSelec
   const tw = useMemo(() => {
     const m: Record<string, { sets: number; reps: number; ton: number }> = {};
     sets.forEach((s) => {
-      if (s.miss || weekStart(s.date) !== thisWk) return;
+      if (s.miss || s.warmup || weekStart(s.date) !== thisWk) return;
       const t = (m[patternOf(nameOf(s.exId))] ||= { sets: 0, reps: 0, ton: 0 });
       t.sets += 1;
       t.reps += s.reps;
@@ -385,7 +385,7 @@ function IntensityView({ exercises, sets, settings, rangeWks, selectedExId, onSe
   const bestE = useMemo(() => {
     const m: Record<string, number> = {};
     sets.forEach((s) => {
-      if (s.miss) return;
+      if (s.miss || s.warmup) return;
       const v = e1rm(s.weight, s.reps, s.rpe, settings);
       if (!m[s.exId] || v > m[s.exId]) m[s.exId] = v;
     });
@@ -395,7 +395,7 @@ function IntensityView({ exercises, sets, settings, rangeWks, selectedExId, onSe
   const byEx = useMemo(() => {
     const m: Record<string, SetRow[]> = {};
     sets.forEach((s) => {
-      if (!s.miss) (m[s.exId] ||= []).push(s);
+      if (!s.miss && !s.warmup) (m[s.exId] ||= []).push(s);
     });
     return m;
   }, [sets]);
@@ -407,7 +407,7 @@ function IntensityView({ exercises, sets, settings, rangeWks, selectedExId, onSe
       return rollingDenominator(s, byEx[s.exId] || [], settings);
     };
     sets.forEach((s) => {
-      if (s.miss) return;
+      if (s.miss || s.warmup) return;
       if (cutoff && s.date < cutoff) return;
       if (scope === 'lift' && s.exId !== exId) return;
       const best = denomFor(s);

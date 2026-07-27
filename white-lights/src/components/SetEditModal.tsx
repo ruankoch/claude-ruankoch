@@ -19,6 +19,7 @@ export function SetEditModal({ set, exercises, settings, onSave, onDelete, onClo
   const [reps, setReps] = useState(set.reps);
   const [rpe, setRpe] = useState<number | null>(set.rpe);
   const [miss, setMiss] = useState(!!set.miss);
+  const [warmup, setWarmup] = useState(!!set.warmup);
 
   const step = settings.units === 'lb' ? 5 : 2.5;
   const bump = (delta: number) => {
@@ -29,7 +30,7 @@ export function SetEditModal({ set, exercises, settings, onSave, onDelete, onClo
   const canSave = parseFloat(weight) > 0 && reps >= 1;
   const save = () => {
     if (!canSave) return;
-    onSave({ exId, date, weight: parseFloat(weight), reps, rpe, miss });
+    onSave({ exId, date, weight: parseFloat(weight), reps, rpe, miss, warmup });
   };
 
   return (
@@ -87,6 +88,17 @@ export function SetEditModal({ set, exercises, settings, onSave, onDelete, onClo
                   {v === null ? '—' : v}
                 </button>
               ))}
+            </div>
+          </div>
+          <div className="fieldrow">
+            <label className="lbl">Set type</label>
+            <div className="seg">
+              <button className={'seg-btn' + (!warmup ? ' on' : '')} onClick={() => setWarmup(false)}>
+                Working
+              </button>
+              <button className={'seg-btn' + (warmup ? ' on' : '')} onClick={() => setWarmup(true)}>
+                Warm-up
+              </button>
             </div>
           </div>
         </div>
