@@ -15,6 +15,8 @@ OUT = '/home/user/claude-ruankoch/white-lights/src/data/program12.ts'
 wb = openpyxl.load_workbook(SRC, data_only=True)
 WEEKDAY = {'MONDAY':('Mon',1),'TUESDAY':('Tue',2),'WEDNESDAY':('Wed',3),
            'THURSDAY':('Thu',4),'FRIDAY':('Fri',5),'SATURDAY':('Sat',6),'SUNDAY':('Sun',7)}
+# rename map: exercises reclassified as dumbbell movements
+NAME_OVERRIDES = {'Bulgarian Split Squat': 'DB Bulgarian Split Squats'}
 ALLOWED_RPE = {6,6.5,7,7.5,8,8.5,9,9.5,10}
 def numish(v): return isinstance(v,(int,float))
 def clean_reps(c):
@@ -62,6 +64,7 @@ for sheet in ['Block 1','Block 2','Block 3']:
         if sets_n is None and load is None and not (rpe not in (None,'','—','-')) \
            and not numish(pct) and not (reps_s and re.search(r'\d', reps_s)):
             continue
+        name=NAME_OVERRIDES.get(name, name)
         item={'ex':name}
         rx=f'{sets_n}×{reps_s}' if (sets_n is not None and reps_s) else (reps_s or '')
         rpe_s=None

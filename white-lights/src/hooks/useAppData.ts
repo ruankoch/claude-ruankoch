@@ -7,8 +7,13 @@ import { PROGRAM, type ProgramDay, type StoredProgram } from '../program';
 import { PROGRAM_12_DAYS, PROGRAM_12_NAME } from '../data/program12';
 
 const TWELVE_ID = 'ruan12';
-const PROGRAM_12_VER = 2; // bump when program12.ts changes to refresh stored days
-const EX_PRELOAD_VER = 2; // bump to re-preload new program exercise names
+const PROGRAM_12_VER = 3; // bump when program12.ts changes to refresh stored days
+const EX_PRELOAD_VER = 3; // bump to re-preload new program exercise names
+const EX_RENAME_VER = 1; // bump to apply a new batch of exercise renames
+// old name -> new name; renames a stored exercise in place (sets/history follow)
+const EXERCISE_RENAMES: [string, string][] = [
+  ['Bulgarian Split Squat', 'DB Bulgarian Split Squats'],
+];
 import { MEET_HISTORY } from '../data/meetHistory';
 import { sampleSets } from '../data/sample';
 import {
@@ -109,6 +114,18 @@ export function useAppData(): AppApi {
       if ((await db.exercises.count()) === 0) {
         await db.exercises.bulkAdd(DEFAULT_EXERCISES);
       }
+      // Apply exercise renames in place (keeps the id, so sets/history follow),
+      // before the preload so the new name isn't also added as a duplicate.
+      if ((await kvGet<number>('exRenameVer', 0)) < EX_RENAME_VER) {
+        const exs = await db.exercises.toArray();
+        for (const [oldName, newName] of EXERCISE_RENAMES) {
+          const match = exs.find((e) => e.name.trim().toLowerCase() === oldName.toLowerCase());
+          const clash = exs.some((e) => e.name.trim().toLowerCase() === newName.toLowerCase());
+          if (match && !clash) await db.exercises.update(match.id, { name: newName });
+        }
+        await kvSet('exRenameVer', EX_RENAME_VER);
+      }
+
       // Preload the 12-week program's exercise names (skip the "2 favourites"
       // placeholder), versioned so a program update adds any new lifts once.
       if ((await kvGet<number>('exPreloadVer', 0)) < EX_PRELOAD_VER) {
