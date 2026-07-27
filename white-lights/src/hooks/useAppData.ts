@@ -9,7 +9,7 @@ import { PROGRAM_12_DAYS, PROGRAM_12_NAME } from '../data/program12';
 const TWELVE_ID = 'ruan12';
 const PROGRAM_12_VER = 3; // bump when program12.ts changes to refresh stored days
 const EX_PRELOAD_VER = 3; // bump to re-preload new program exercise names
-const EX_RENAME_VER = 1; // bump to apply a new batch of exercise renames
+const EX_RENAME_VER = 2; // bump to apply a new batch of exercise renames
 // old name -> new name; renames a stored exercise in place (sets/history follow)
 const EXERCISE_RENAMES: [string, string][] = [
   ['Bulgarian Split Squat', 'DB Bulgarian Split Squats'],
@@ -122,6 +122,27 @@ export function useAppData(): AppApi {
           const match = exs.find((e) => e.name.trim().toLowerCase() === oldName.toLowerCase());
           const clash = exs.some((e) => e.name.trim().toLowerCase() === newName.toLowerCase());
           if (match && !clash) await db.exercises.update(match.id, { name: newName });
+        }
+        // also rename occurrences inside every stored program's day items
+        // (covers copies of the program, not just the seeded one)
+        if (await db.kv.get(PROGRAMS_KEY)) {
+          const ps = await kvGet<StoredProgram[]>(PROGRAMS_KEY, []);
+          let changed = false;
+          const renamed = ps.map((pr) => ({
+            ...pr,
+            days: pr.days.map((d) => ({
+              ...d,
+              items: d.items.map((it) => {
+                const hit = EXERCISE_RENAMES.find(([o]) => o.toLowerCase() === it.ex.trim().toLowerCase());
+                if (hit) {
+                  changed = true;
+                  return { ...it, ex: hit[1] };
+                }
+                return it;
+              }),
+            })),
+          }));
+          if (changed) await kvSet(PROGRAMS_KEY, renamed);
         }
         await kvSet('exRenameVer', EX_RENAME_VER);
       }
