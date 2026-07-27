@@ -45,6 +45,17 @@ export async function hasPendingTm(): Promise<boolean> {
   return rows.some((r) => r.row[6] === TM_SOURCE);
 }
 
+/** Active-program selection (source 'program'): the id rides the id column,
+    the name the exercise column. Latest such row wins across devices. */
+export const PROGRAM_SOURCE = 'program';
+export function buildProgramRow(id: string, name: string): SheetRow {
+  return [todayStr(), name || 'Active programme', '', '', '', '', PROGRAM_SOURCE, id];
+}
+export async function hasPendingProgram(): Promise<boolean> {
+  const rows = await db.outbox.toArray();
+  return rows.some((r) => r.row[6] === PROGRAM_SOURCE);
+}
+
 /* --- goals & notes ---
    Goals (source 'goal'): exercise NAME resolves the exId on the other device;
    weight/reps/label ride the weight/reps/rpe columns (blank reps = e1RM).

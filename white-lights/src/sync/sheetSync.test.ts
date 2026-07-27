@@ -65,6 +65,17 @@ describe('parseSheetMatrix', () => {
     expect(parseSheetMatrix(m).tms).toBeNull();
   });
 
+  it('extracts the latest active-programme selection and keeps it out of sets', () => {
+    const m: unknown[][] = [
+      ['2025-07-01', '8-Week Powerlifting', '', '', '', '', 'program', 'default'],
+      ['2025-07-10', 'Squat', 200, 3, '', '', 'workout', 's1'],
+      ['2025-07-20', '12-Week Powerlifting', '', '', '', '', 'program', 'ruan12'],
+    ];
+    const { sets, activeProgramId } = parseSheetMatrix(m);
+    expect(sets.map((s) => s.name)).toEqual(['Squat']);
+    expect(activeProgramId).toBe('ruan12'); // last wins
+  });
+
   it('parses goal rows (blank reps = e1RM) and goal tombstones', () => {
     const m: unknown[][] = [
       ['2025-07-01', 'Deadlift', 300, '', 'comp target', '', 'goal', 'g1'],

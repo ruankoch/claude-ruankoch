@@ -79,6 +79,7 @@ export function parseSheetMatrix(matrix: unknown[][]): {
   goals: ParsedGoalRow[];
   goalTombstones: Set<string>;
   notes: Map<string, string>;
+  activeProgramId: string | null;
 } {
   const sets: ParsedSetRow[] = [];
   const tombstones = new Set<string>();
@@ -86,7 +87,8 @@ export function parseSheetMatrix(matrix: unknown[][]): {
   const goals: ParsedGoalRow[] = [];
   const goalTombstones = new Set<string>();
   const notes = new Map<string, string>();
-  const empty = { sets, tombstones, tms, goals, goalTombstones, notes };
+  let activeProgramId: string | null = null;
+  const empty = { sets, tombstones, tms, goals, goalTombstones, notes, activeProgramId };
   if (!Array.isArray(matrix) || !matrix.length) return empty;
 
   const first = (matrix[0] || []).map((c) => cell(c).toLowerCase());
@@ -136,6 +138,11 @@ export function parseSheetMatrix(matrix: unknown[][]): {
       if (ISO.test(d)) notes.set(d, text); // last row for a date wins; '' clears
       continue;
     }
+    if (source === 'program') {
+      const pid = cell(r[7]);
+      if (pid) activeProgramId = pid; // last wins
+      continue;
+    }
     const date = cell(r[0]);
     const name = cell(r[1]);
     const weight = parseFloat(cell(r[2]));
@@ -156,5 +163,5 @@ export function parseSheetMatrix(matrix: unknown[][]): {
       source: source === 'meet' ? 'meet' : source === 'historic' || source === 'hist' ? 'historic' : '',
     });
   }
-  return { sets, tombstones, tms, goals, goalTombstones, notes };
+  return { sets, tombstones, tms, goals, goalTombstones, notes, activeProgramId };
 }

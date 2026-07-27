@@ -293,7 +293,7 @@ export function MoreTab({ api, showToast }: Props) {
           Two-way sync through the sheet. Logged sets push to the sheet; the app also pulls and
           merges on launch and on Sync now, so a fresh device (e.g. desktop) converges to the same
           log — sets dedupe on id, and deletes propagate as tombstone rows. Sets, training maxes,
-          goals and notes all sync. Set up the endpoint in the target Sheet under
+          goals, notes and the selected programme all sync. Set up the endpoint in the target Sheet under
           Extensions → Apps Script (execute as you, access "Anyone"); the doGet read-back requires
           redeploying a new version. The URL is the only secret and grants read of your log — rotate
           by redeploying if it leaks.

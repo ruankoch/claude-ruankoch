@@ -13,12 +13,14 @@ import {
   buildGoalRow,
   buildGoalTombstoneRow,
   buildNoteRow,
+  buildProgramRow,
   buildRow,
   buildTmRow,
   buildTombstoneRow,
   enqueue,
   enqueueSets,
   flush,
+  hasPendingProgram,
   hasPendingTm,
   LAST_SYNC_KEY,
   pendingNoteDates,
@@ -453,6 +455,9 @@ export function useAppData(): AppApi {
   const setActiveProgram = useCallback(async (id: string) => {
     await kvSet(ACTIVE_PROGRAM_KEY, id);
     await kvSet(PLAN_KEY, null); // day keys differ per program; clear the picked day
+    const ps = await kvGet<StoredProgram[]>(PROGRAMS_KEY, []);
+    await enqueue([buildProgramRow(id, ps.find((p) => p.id === id)?.name || '')]); // sync selection
+    void flush();
   }, []);
 
   const renameProgram = useCallback(async (id: string, name: string) => {
@@ -489,8 +494,15 @@ export function useAppData(): AppApi {
     const url = await kvGet<string>(SYNC_URL_KEY, '');
     if (!url) return { added: 0, removed: 0 };
     const matrix = await jsonpGet(url);
-    const { sets: rows, tombstones, tms, goals: goalRows, goalTombstones, notes: noteMap } =
-      parseSheetMatrix(matrix);
+    const {
+      sets: rows,
+      tombstones,
+      tms,
+      goals: goalRows,
+      goalTombstones,
+      notes: noteMap,
+      activeProgramId: pulledProgram,
+    } = parseSheetMatrix(matrix);
     const pendingNotes = await pendingNoteDates();
     let added = 0;
     let removed = 0;
@@ -569,6 +581,19 @@ export function useAppData(): AppApi {
       const cur = await kvGet<TrainingMaxes>(TMS_KEY, DEFAULT_TMS);
       if (cur.squat !== tms.squat || cur.bench !== tms.bench || cur.dead !== tms.dead) {
         await kvSet(TMS_KEY, tms);
+      }
+    }
+
+    // Apply the latest selected programme (last-write-wins) if we have that
+    // programme locally and no unsynced local selection is queued.
+    if (pulledProgram && !(await hasPendingProgram())) {
+      const ps = await kvGet<StoredProgram[]>(PROGRAMS_KEY, []);
+      if (
+        ps.some((p) => p.id === pulledProgram) &&
+        (await kvGet<string>(ACTIVE_PROGRAM_KEY, '')) !== pulledProgram
+      ) {
+        await kvSet(ACTIVE_PROGRAM_KEY, pulledProgram);
+        await kvSet(PLAN_KEY, null);
       }
     }
 
