@@ -103,6 +103,23 @@ export function useAppData(): AppApi {
       if ((await db.exercises.count()) === 0) {
         await db.exercises.bulkAdd(DEFAULT_EXERCISES);
       }
+      // one-time: preload the 12-week program's exercise names (skip the
+      // "2 favourites" placeholder). Runs once so lifts you later delete stay
+      // deleted rather than reappearing.
+      if (!(await db.kv.get('ex12seeded'))) {
+        const have = new Set((await db.exercises.toArray()).map((e) => e.name.trim().toLowerCase()));
+        const names = new Set<string>();
+        PROGRAM_12_DAYS.forEach((d) =>
+          d.items.forEach((it) => {
+            const n = it.ex.trim();
+            if (n && !/^accessories:/i.test(n)) names.add(n);
+          }),
+        );
+        const toAdd = [...names].filter((n) => !have.has(n.toLowerCase()));
+        if (toAdd.length) await db.exercises.bulkAdd(toAdd.map((name) => ({ id: uid(), name })));
+        await kvSet('ex12seeded', true);
+      }
+
       if (!(await db.kv.get(SETTINGS_KEY))) await kvSet(SETTINGS_KEY, DEFAULT_SETTINGS);
       if (!(await db.kv.get(TMS_KEY))) await kvSet(TMS_KEY, DEFAULT_TMS);
       const twelve = { id: TWELVE_ID, name: PROGRAM_12_NAME, days: PROGRAM_12_DAYS };
