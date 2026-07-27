@@ -4,6 +4,9 @@ import { db, kvGet, kvSet } from '../db';
 import { uid } from '../derive';
 import { DEFAULT_EXERCISES, DEFAULT_SETTINGS, DEFAULT_TMS } from '../data/exercises';
 import { PROGRAM, type ProgramDay, type StoredProgram } from '../program';
+import { PROGRAM_12_DAYS, PROGRAM_12_NAME } from '../data/program12';
+
+const TWELVE_ID = 'ruan12';
 import { MEET_HISTORY } from '../data/meetHistory';
 import { sampleSets } from '../data/sample';
 import {
@@ -102,8 +105,13 @@ export function useAppData(): AppApi {
       }
       if (!(await db.kv.get(SETTINGS_KEY))) await kvSet(SETTINGS_KEY, DEFAULT_SETTINGS);
       if (!(await db.kv.get(TMS_KEY))) await kvSet(TMS_KEY, DEFAULT_TMS);
+      const twelve = { id: TWELVE_ID, name: PROGRAM_12_NAME, days: PROGRAM_12_DAYS };
       if (!(await db.kv.get(PROGRAMS_KEY))) {
-        await kvSet(PROGRAMS_KEY, [{ id: 'default', name: PROGRAM.name, days: PROGRAM.days }]);
+        await kvSet(PROGRAMS_KEY, [{ id: 'default', name: PROGRAM.name, days: PROGRAM.days }, twelve]);
+      } else {
+        // migrate existing installs: add the 12-week program if it's missing
+        const ps = await kvGet<StoredProgram[]>(PROGRAMS_KEY, []);
+        if (!ps.some((p) => p.id === TWELVE_ID)) await kvSet(PROGRAMS_KEY, [...ps, twelve]);
       }
       if (!(await db.kv.get(ACTIVE_PROGRAM_KEY))) await kvSet(ACTIVE_PROGRAM_KEY, 'default');
       try {
