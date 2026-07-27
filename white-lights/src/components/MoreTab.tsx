@@ -60,6 +60,8 @@ export function MoreTab({ api, showToast }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [urlDraft, setUrlDraft] = useState(sync.url);
   const [armedEx, setArmedEx] = useState<string | null>(null);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const setSettings = (patch: Partial<Settings>) => void api.setSettings(patch);
@@ -117,16 +119,30 @@ export function MoreTab({ api, showToast }: Props) {
     }
   };
 
-  const onImportFile = async (file: File) => {
+  const runImport = async (text: string): Promise<boolean> => {
     try {
-      const parsed = JSON.parse(await file.text());
-      const res = await api.importBackup(parsed);
-      showToast({
-        pr: true,
-        text: `Imported ${res.sets} sets · ${res.exercises} new exercises`,
-      });
+      const { added, removed } = await api.importText(text);
+      if (added === 0 && removed === 0) {
+        showToast({ pr: false, text: 'Nothing new imported' });
+        return false;
+      }
+      const bits = [`${added} added`];
+      if (removed) bits.push(`${removed} removed`);
+      showToast({ pr: true, text: `Imported · ${bits.join(' · ')}` });
+      return true;
     } catch {
-      showToast({ pr: false, text: 'Import failed — not a valid backup file' });
+      showToast({ pr: false, text: 'Import failed — expected a Google Sheet CSV or JSON backup' });
+      return false;
+    }
+  };
+
+  const onImportFile = (file: File) => file.text().then(runImport);
+
+  const importPasted = async () => {
+    if (!pasteText.trim()) return;
+    if (await runImport(pasteText)) {
+      setPasteText('');
+      setPasteOpen(false);
     }
   };
 
@@ -300,6 +316,49 @@ export function MoreTab({ api, showToast }: Props) {
         </div>
       </div>
 
+      <div className="sect">Import from Google Sheet (offline)</div>
+      <div className="card">
+        <div className="btncol">
+          <button className="btn ghost" onClick={() => fileRef.current?.click()}>
+            Import CSV / JSON file
+          </button>
+          <button className="btn ghost" onClick={() => setPasteOpen((o) => !o)}>
+            {pasteOpen ? 'Close paste box' : 'Paste sheet data (CSV)'}
+          </button>
+        </div>
+        {pasteOpen && (
+          <div style={{ marginTop: 9 }}>
+            <textarea
+              className="notes"
+              rows={5}
+              placeholder="Paste the Log tab's rows here (date, exercise, weight, reps, rpe, miss, source, id)…"
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+            />
+            <div className="actions" style={{ marginTop: 0 }}>
+              <button className="btn primary" disabled={!pasteText.trim()} onClick={importPasted}>
+                Import pasted data
+              </button>
+              <button
+                className="btn ghost"
+                onClick={() => {
+                  setPasteOpen(false);
+                  setPasteText('');
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="foot">
+          Blocked from Google Sheets on this network? On a device that can reach it, open the sheet →
+          File → Download → Comma-separated values (the <b>Log</b> tab), bring the file here and import
+          it — no network needed. It rebuilds your full history locally (sets, training maxes, goals,
+          notes, selected programme), deduping on id and applying any deletions. A JSON backup works too.
+        </div>
+      </div>
+
       <div className="sect">Exercises</div>
       <div className="card">
         {exSorted.map((ex) => {
@@ -332,7 +391,7 @@ export function MoreTab({ api, showToast }: Props) {
         <input
           ref={fileRef}
           type="file"
-          accept="application/json,.json"
+          accept="application/json,.json,text/csv,.csv,.tsv"
           style={{ display: 'none' }}
           onChange={(e) => {
             const f = e.target.files?.[0];
@@ -341,9 +400,6 @@ export function MoreTab({ api, showToast }: Props) {
           }}
         />
         <div className="btncol">
-          <button className="btn ghost" onClick={() => fileRef.current?.click()}>
-            Import from backup (JSON)
-          </button>
           <button className="btn ghost" onClick={importMeets}>
             Import meet history (4 comps, 2023–25)
           </button>
@@ -365,7 +421,7 @@ export function MoreTab({ api, showToast }: Props) {
         </div>
         <div className="foot">
           {data.sets.length} sets · {data.exercises.length} exercises · {data.goals.length} goals stored
-          on this device. Import ingests the artifact's export JSON verbatim, deduping on id.
+          on this device. Export a JSON backup to move everything to another device without the sheet.
         </div>
       </div>
     </div>

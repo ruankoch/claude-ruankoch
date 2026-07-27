@@ -32,6 +32,47 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
 const cell = (c: unknown): string => (c == null ? '' : String(c).trim());
 
+/** Parse CSV/TSV text (as downloaded from Google Sheets) into a row matrix.
+    Handles quoted fields with embedded commas, quotes, and newlines. */
+export function parseDelimited(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let inQuotes = false;
+  const pushField = () => {
+    row.push(field);
+    field = '';
+  };
+  const pushRow = () => {
+    pushField();
+    rows.push(row);
+    row = [];
+  };
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ',' || c === '\t') {
+      pushField();
+    } else if (c === '\n') {
+      pushRow();
+    } else if (c === '\r') {
+      /* ignore */
+    } else {
+      field += c;
+    }
+  }
+  if (field.length || row.length) pushRow();
+  return rows.filter((r) => r.some((v) => v.trim() !== ''));
+}
+
 /** Fetch the sheet as an array of row arrays via JSONP. */
 export function jsonpGet(url: string, timeoutMs = 20000): Promise<unknown[][]> {
   return new Promise((resolve, reject) => {

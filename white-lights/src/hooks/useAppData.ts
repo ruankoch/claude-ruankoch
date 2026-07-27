@@ -26,7 +26,7 @@ import {
   pendingNoteDates,
   SYNC_URL_KEY,
 } from '../sync/outbox';
-import { jsonpGet, parseSheetMatrix } from '../sync/sheetSync';
+import { jsonpGet, parseDelimited, parseSheetMatrix } from '../sync/sheetSync';
 import type {
   AppData,
   BackupBlob,
@@ -77,6 +77,7 @@ export interface AppApi {
   loadSample: () => Promise<void>;
   clearAll: () => Promise<void>;
   importBackup: (blob: BackupBlob) => Promise<{ sets: number; exercises: number }>;
+  importText: (text: string) => Promise<{ added: number; removed: number }>;
   setSyncUrl: (url: string) => Promise<void>;
   pullSync: () => Promise<{ added: number; removed: number }>;
   syncNow: () => Promise<{ remaining: number; added: number; removed: number }>;
@@ -490,10 +491,11 @@ export function useAppData(): AppApi {
 
   /* Pull the sheet and merge: add sets whose id we lack (matching exercises by
      name, creating missing), drop sets whose id has a delete tombstone. */
-  const pullSync = useCallback(async (): Promise<{ added: number; removed: number }> => {
-    const url = await kvGet<string>(SYNC_URL_KEY, '');
-    if (!url) return { added: 0, removed: 0 };
-    const matrix = await jsonpGet(url);
+  // Merge a sheet matrix (from live JSONP pull or an offline CSV import) into
+  // local storage: sets, tombstones, goals, notes, TMs, and the selected
+  // programme. Shared by pullSync and importText.
+  const applyMatrix = useCallback(
+    async (matrix: unknown[][]): Promise<{ added: number; removed: number }> => {
     const {
       sets: rows,
       tombstones,
@@ -599,7 +601,33 @@ export function useAppData(): AppApi {
 
     await db.kv.put({ key: LAST_SYNC_KEY, value: Date.now() });
     return { added, removed };
-  }, []);
+    },
+    [],
+  );
+
+  const pullSync = useCallback(async (): Promise<{ added: number; removed: number }> => {
+    const url = await kvGet<string>(SYNC_URL_KEY, '');
+    if (!url) return { added: 0, removed: 0 };
+    return applyMatrix(await jsonpGet(url));
+  }, [applyMatrix]);
+
+  /* Offline import: paste or load a CSV downloaded from the Google Sheet (or a
+     JSON backup). Reconstructs the full dataset locally — no network needed,
+     for machines where Google Sheets is blocked. */
+  const importText = useCallback(
+    async (text: string): Promise<{ added: number; removed: number }> => {
+      const t = text.trim();
+      if (!t) return { added: 0, removed: 0 };
+      if (t.startsWith('{') || t.startsWith('[')) {
+        const parsed = JSON.parse(t);
+        const blob: BackupBlob = Array.isArray(parsed) ? { sets: parsed } : parsed;
+        const res = await importBackup(blob);
+        return { added: res.sets, removed: 0 };
+      }
+      return applyMatrix(parseDelimited(t));
+    },
+    [applyMatrix, importBackup],
+  );
 
   const pullOnce = useCallback(async () => {
     try {
@@ -649,6 +677,7 @@ export function useAppData(): AppApi {
     loadSample,
     clearAll,
     importBackup,
+    importText,
     setSyncUrl,
     pullSync,
     syncNow,
