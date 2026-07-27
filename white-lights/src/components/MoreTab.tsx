@@ -60,6 +60,8 @@ export function MoreTab({ api, showToast }: Props) {
   const [confirmClear, setConfirmClear] = useState(false);
   const [urlDraft, setUrlDraft] = useState(sync.url);
   const [armedEx, setArmedEx] = useState<string | null>(null);
+  const [editEx, setEditEx] = useState<string | null>(null);
+  const [exDraft, setExDraft] = useState('');
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
@@ -78,6 +80,16 @@ export function MoreTab({ api, showToast }: Props) {
     () => [...data.exercises].sort((a, b) => a.name.localeCompare(b.name)),
     [data.exercises],
   );
+
+  const startRenameEx = (id: string, name: string) => {
+    setArmedEx(null);
+    setEditEx(id);
+    setExDraft(name);
+  };
+  const commitRenameEx = () => {
+    if (editEx && exDraft.trim()) void api.renameExercise(editEx, exDraft);
+    setEditEx(null);
+  };
 
   const delExercise = async (id: string, name: string) => {
     if (armedEx !== id) {
@@ -388,25 +400,51 @@ export function MoreTab({ api, showToast }: Props) {
         {exSorted.map((ex) => {
           const count = setCounts[ex.id] || 0;
           const armed = armedEx === ex.id;
+          const editing = editEx === ex.id;
           return (
             <div className="setrow2" key={ex.id}>
-              <span className="lbl">
-                {ex.name}
-                <span className="unit">
-                  {' '}
-                  {count} set{count === 1 ? '' : 's'}
+              {editing ? (
+                <input
+                  className="txt"
+                  autoFocus
+                  value={exDraft}
+                  onChange={(e) => setExDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitRenameEx();
+                    if (e.key === 'Escape') setEditEx(null);
+                  }}
+                  onBlur={commitRenameEx}
+                />
+              ) : (
+                <span className="lbl exname">
+                  {ex.name}
+                  <span className="unit">
+                    {' '}
+                    {count} set{count === 1 ? '' : 's'}
+                  </span>
                 </span>
-              </span>
-              <button className={'exdel' + (armed ? ' armed' : '')} onClick={() => delExercise(ex.id, ex.name)}>
-                {armed ? 'Tap to confirm' : 'Delete'}
-              </button>
+              )}
+              {!editing && (
+                <div className="exrow-actions">
+                  <button className="exdel" onClick={() => startRenameEx(ex.id, ex.name)} aria-label="Rename">
+                    ✎
+                  </button>
+                  <button
+                    className={'exdel' + (armed ? ' armed' : '')}
+                    onClick={() => delExercise(ex.id, ex.name)}
+                  >
+                    {armed ? 'Tap to confirm' : 'Delete'}
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}
         <div className="foot">
-          Deleting a lift removes it and its logged sets — the sets are tombstoned so they clear on
-          your other devices on the next sync. Goals for the lift are removed too. This can't be
-          undone (export a backup first if unsure).
+          Tap ✎ to rename a lift (e.g. append "DB" to switch it to per-hand loading) — all its sets,
+          history and goals follow automatically. Deleting a lift removes it and its logged sets (each
+          tombstoned so they clear on your other devices); its goals go too. This can't be undone
+          (export a backup first if unsure).
         </div>
       </div>
 

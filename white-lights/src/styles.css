@@ -368,6 +368,8 @@ html, body, #root { background: #101214; }
   font-size: 13px; cursor: pointer; white-space: nowrap;
 }
 .exdel.armed { background: #D23B33; border-color: #D23B33; color: #fff; font-weight: 600; }
+.exname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exrow-actions { display: flex; gap: 6px; flex: 0 0 auto; }
 
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%);

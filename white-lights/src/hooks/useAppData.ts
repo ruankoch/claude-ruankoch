@@ -64,6 +64,7 @@ export interface AppApi {
   addProgram: (name: string, days: ProgramDay[]) => Promise<string>;
   deleteProgram: (id: string) => Promise<void>;
   addExercise: (name: string) => string;
+  renameExercise: (id: string, name: string) => Promise<void>;
   deleteExercise: (id: string) => Promise<number>;
   addSet: (set: SetRow) => Promise<void>;
   addHistoric: (set: SetRow) => Promise<void>;
@@ -218,6 +219,11 @@ export function useAppData(): AppApi {
     const ex = { id: uid(), name: name.trim() };
     void db.exercises.add(ex);
     return ex.id;
+  }, []);
+
+  const renameExercise = useCallback(async (id: string, name: string) => {
+    const n = name.trim();
+    if (n) await db.exercises.update(id, { name: n });
   }, []);
 
   /* Delete an exercise and everything under it: its sets (each tombstoned so
@@ -675,6 +681,7 @@ export function useAppData(): AppApi {
     addProgram,
     deleteProgram,
     addExercise,
+    renameExercise,
     deleteExercise,
     addSet,
     addHistoric,
