@@ -7,6 +7,8 @@ import { PROGRAM, type ProgramDay, type StoredProgram } from '../program';
 import { PROGRAM_12_DAYS, PROGRAM_12_NAME } from '../data/program12';
 
 const TWELVE_ID = 'ruan12';
+const PROGRAM_12_VER = 2; // bump when program12.ts changes to refresh stored days
+const EX_PRELOAD_VER = 2; // bump to re-preload new program exercise names
 import { MEET_HISTORY } from '../data/meetHistory';
 import { sampleSets } from '../data/sample';
 import {
@@ -106,10 +108,9 @@ export function useAppData(): AppApi {
       if ((await db.exercises.count()) === 0) {
         await db.exercises.bulkAdd(DEFAULT_EXERCISES);
       }
-      // one-time: preload the 12-week program's exercise names (skip the
-      // "2 favourites" placeholder). Runs once so lifts you later delete stay
-      // deleted rather than reappearing.
-      if (!(await db.kv.get('ex12seeded'))) {
+      // Preload the 12-week program's exercise names (skip the "2 favourites"
+      // placeholder), versioned so a program update adds any new lifts once.
+      if ((await kvGet<number>('exPreloadVer', 0)) < EX_PRELOAD_VER) {
         const have = new Set((await db.exercises.toArray()).map((e) => e.name.trim().toLowerCase()));
         const names = new Set<string>();
         PROGRAM_12_DAYS.forEach((d) =>
@@ -120,7 +121,7 @@ export function useAppData(): AppApi {
         );
         const toAdd = [...names].filter((n) => !have.has(n.toLowerCase()));
         if (toAdd.length) await db.exercises.bulkAdd(toAdd.map((name) => ({ id: uid(), name })));
-        await kvSet('ex12seeded', true);
+        await kvSet('exPreloadVer', EX_PRELOAD_VER);
       }
 
       if (!(await db.kv.get(SETTINGS_KEY))) await kvSet(SETTINGS_KEY, DEFAULT_SETTINGS);
@@ -129,10 +130,19 @@ export function useAppData(): AppApi {
       if (!(await db.kv.get(PROGRAMS_KEY))) {
         await kvSet(PROGRAMS_KEY, [{ id: 'default', name: PROGRAM.name, days: PROGRAM.days }, twelve]);
       } else {
-        // migrate existing installs: add the 12-week program if it's missing
-        const ps = await kvGet<StoredProgram[]>(PROGRAMS_KEY, []);
-        if (!ps.some((p) => p.id === TWELVE_ID)) await kvSet(PROGRAMS_KEY, [...ps, twelve]);
+        // migrate: add the 12-week program if missing, or refresh its days when
+        // the embedded program has been updated (keeps any custom name).
+        let ps = await kvGet<StoredProgram[]>(PROGRAMS_KEY, []);
+        const ver = await kvGet<number>('prog12ver', 1);
+        if (!ps.some((p) => p.id === TWELVE_ID)) {
+          ps = [...ps, twelve];
+        } else if (ver < PROGRAM_12_VER) {
+          ps = ps.map((p) => (p.id === TWELVE_ID ? { ...p, days: PROGRAM_12_DAYS } : p));
+          if ((await kvGet<string>(ACTIVE_PROGRAM_KEY, '')) === TWELVE_ID) await kvSet(PLAN_KEY, null);
+        }
+        await kvSet(PROGRAMS_KEY, ps);
       }
+      await kvSet('prog12ver', PROGRAM_12_VER);
       if (!(await db.kv.get(ACTIVE_PROGRAM_KEY))) await kvSet(ACTIVE_PROGRAM_KEY, 'default');
       try {
         await navigator.storage?.persist?.();
