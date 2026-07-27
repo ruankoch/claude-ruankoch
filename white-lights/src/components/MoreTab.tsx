@@ -189,6 +189,25 @@ export function MoreTab({ api, showToast }: Props) {
     });
   };
 
+  const importFromSheet = async () => {
+    if (!sync.url) {
+      showToast({ pr: false, text: 'Set the Google Sheets endpoint above first' });
+      return;
+    }
+    try {
+      const { added, removed } = await api.pullSync();
+      const bits: string[] = [];
+      if (added) bits.push(`${added} added`);
+      if (removed) bits.push(`${removed} removed`);
+      showToast({
+        pr: added > 0,
+        text: bits.length ? `Imported from sheet · ${bits.join(' · ')}` : 'Already up to date',
+      });
+    } catch {
+      showToast({ pr: false, text: "Couldn't reach Google Sheet on this network — use the CSV import below" });
+    }
+  };
+
   const bumpTM = (k: keyof TrainingMaxes, delta: number) =>
     void api.setTMs({ [k]: Math.max(step, Math.round((tms[k] + delta) / step) * step) } as Partial<TrainingMaxes>);
 
@@ -316,9 +335,12 @@ export function MoreTab({ api, showToast }: Props) {
         </div>
       </div>
 
-      <div className="sect">Import from Google Sheet (offline)</div>
+      <div className="sect">Import from Google Sheet</div>
       <div className="card">
         <div className="btncol">
+          <button className="btn primary" onClick={importFromSheet}>
+            Import all from Google Sheet
+          </button>
           <button className="btn ghost" onClick={() => fileRef.current?.click()}>
             Import CSV / JSON file
           </button>
@@ -352,10 +374,12 @@ export function MoreTab({ api, showToast }: Props) {
           </div>
         )}
         <div className="foot">
-          Blocked from Google Sheets on this network? On a device that can reach it, open the sheet →
-          File → Download → Comma-separated values (the <b>Log</b> tab), bring the file here and import
-          it — no network needed. It rebuilds your full history locally (sets, training maxes, goals,
-          notes, selected programme), deduping on id and applying any deletions. A JSON backup works too.
+          <b>Import all from Google Sheet</b> pulls the whole sheet in one tap (needs the endpoint set
+          above and network access — use this on a device that can reach Google). Rebuilds your full
+          history locally: sets, training maxes, goals, notes and the selected programme, deduping on id
+          and applying deletions. <b>If this network blocks Google Sheets</b>, on a device that can reach
+          it open the sheet → File → Download → Comma-separated values (the <b>Log</b> tab), bring the
+          file here and use Import CSV / JSON file — no network needed. A JSON backup works there too.
         </div>
       </div>
 
