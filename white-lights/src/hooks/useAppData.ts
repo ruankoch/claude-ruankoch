@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db, kvGet, kvSet } from '../db';
 import { uid } from '../derive';
 import { DEFAULT_EXERCISES, DEFAULT_SETTINGS, DEFAULT_TMS } from '../data/exercises';
+import { PROGRAM, type ProgramDay, type StoredProgram } from '../program';
 import { MEET_HISTORY } from '../data/meetHistory';
 import { sampleSets } from '../data/sample';
 import {
@@ -35,6 +36,8 @@ const SETTINGS_KEY = 'settings';
 const PLAN_KEY = 'plan';
 const TMS_KEY = 'tms';
 const SELECTED_EX_KEY = 'selectedExId';
+const PROGRAMS_KEY = 'programs';
+const ACTIVE_PROGRAM_KEY = 'activeProgramId';
 
 async function currentUnits(): Promise<Settings['units']> {
   const s = await kvGet<Settings>(SETTINGS_KEY, DEFAULT_SETTINGS);
@@ -47,6 +50,12 @@ export interface AppApi {
   sync: { queued: number; lastSync: number | null; url: string };
   selectedExId: string;
   setSelectedExId: (id: string) => Promise<void>;
+  programs: StoredProgram[];
+  activeProgramId: string;
+  setActiveProgram: (id: string) => Promise<void>;
+  renameProgram: (id: string, name: string) => Promise<void>;
+  addProgram: (name: string, days: ProgramDay[]) => Promise<string>;
+  deleteProgram: (id: string) => Promise<void>;
   addExercise: (name: string) => string;
   deleteExercise: (id: string) => Promise<number>;
   addSet: (set: SetRow) => Promise<void>;
@@ -82,6 +91,8 @@ export function useAppData(): AppApi {
   const lastSync = useLiveQuery(() => kvGet<number | null>(LAST_SYNC_KEY, null), [], null);
   const syncUrl = useLiveQuery(() => kvGet<string>(SYNC_URL_KEY, ''), [], '');
   const selectedExId = useLiveQuery(() => kvGet<string>(SELECTED_EX_KEY, ''), [], '');
+  const programs = useLiveQuery(() => kvGet<StoredProgram[]>(PROGRAMS_KEY, []), [], []);
+  const activeProgramId = useLiveQuery(() => kvGet<string>(ACTIVE_PROGRAM_KEY, ''), [], '');
 
   /* one-time seed + storage persistence + initial flush */
   useEffect(() => {
@@ -91,6 +102,10 @@ export function useAppData(): AppApi {
       }
       if (!(await db.kv.get(SETTINGS_KEY))) await kvSet(SETTINGS_KEY, DEFAULT_SETTINGS);
       if (!(await db.kv.get(TMS_KEY))) await kvSet(TMS_KEY, DEFAULT_TMS);
+      if (!(await db.kv.get(PROGRAMS_KEY))) {
+        await kvSet(PROGRAMS_KEY, [{ id: 'default', name: PROGRAM.name, days: PROGRAM.days }]);
+      }
+      if (!(await db.kv.get(ACTIVE_PROGRAM_KEY))) await kvSet(ACTIVE_PROGRAM_KEY, 'default');
       try {
         await navigator.storage?.persist?.();
       } catch {
@@ -410,6 +425,39 @@ export function useAppData(): AppApi {
     await kvSet(SELECTED_EX_KEY, id);
   }, []);
 
+  const setActiveProgram = useCallback(async (id: string) => {
+    await kvSet(ACTIVE_PROGRAM_KEY, id);
+    await kvSet(PLAN_KEY, null); // day keys differ per program; clear the picked day
+  }, []);
+
+  const renameProgram = useCallback(async (id: string, name: string) => {
+    const ps = await kvGet<StoredProgram[]>(PROGRAMS_KEY, []);
+    await kvSet(
+      PROGRAMS_KEY,
+      ps.map((p) => (p.id === id ? { ...p, name: name.trim() || p.name } : p)),
+    );
+  }, []);
+
+  const addProgram = useCallback(async (name: string, days: ProgramDay[]): Promise<string> => {
+    const ps = await kvGet<StoredProgram[]>(PROGRAMS_KEY, []);
+    const id = uid();
+    await kvSet(PROGRAMS_KEY, [...ps, { id, name: name.trim() || 'New program', days }]);
+    await kvSet(ACTIVE_PROGRAM_KEY, id);
+    await kvSet(PLAN_KEY, null);
+    return id;
+  }, []);
+
+  const deleteProgram = useCallback(async (id: string) => {
+    const ps = await kvGet<StoredProgram[]>(PROGRAMS_KEY, []);
+    if (ps.length <= 1) return; // keep at least one
+    const next = ps.filter((p) => p.id !== id);
+    await kvSet(PROGRAMS_KEY, next);
+    if ((await kvGet<string>(ACTIVE_PROGRAM_KEY, '')) === id) {
+      await kvSet(ACTIVE_PROGRAM_KEY, next[0].id);
+      await kvSet(PLAN_KEY, null);
+    }
+  }, []);
+
   /* Pull the sheet and merge: add sets whose id we lack (matching exercises by
      name, creating missing), drop sets whose id has a delete tombstone. */
   const pullSync = useCallback(async (): Promise<{ added: number; removed: number }> => {
@@ -529,6 +577,12 @@ export function useAppData(): AppApi {
     sync: { queued: queued ?? 0, lastSync: lastSync ?? null, url: syncUrl ?? '' },
     selectedExId: selectedExId ?? '',
     setSelectedExId,
+    programs: programs ?? [],
+    activeProgramId: activeProgramId ?? '',
+    setActiveProgram,
+    renameProgram,
+    addProgram,
+    deleteProgram,
     addExercise,
     deleteExercise,
     addSet,

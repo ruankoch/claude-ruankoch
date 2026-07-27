@@ -169,6 +169,14 @@ export default function App() {
           <LogTab
             exercises={orderedExercises} sets={sets} settings={settings} tms={data.tms} goals={goals}
             notes={data.notes} plan={data.plan}
+            programApi={{
+              programs: api.programs,
+              activeId: api.activeProgramId,
+              onSelect: api.setActiveProgram,
+              onRename: api.renameProgram,
+              onDelete: api.deleteProgram,
+              onAdd: api.addProgram,
+            }}
             onAddSet={addSet} onDeleteSet={api.deleteSet} onEditSet={setEditing}
             onAddExercise={api.addExercise}
             onSetNote={api.setNote} onSetPlan={api.setPlan}

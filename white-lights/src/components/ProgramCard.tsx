@@ -1,4 +1,5 @@
-import { PROGRAM, computeLoad, resolveProgramExercise, type ProgramItem } from '../program';
+import { PROGRAM, computeLoad, resolveProgramExercise, type ProgramApi, type ProgramItem } from '../program';
+import { ProgramPicker } from './ProgramPicker';
 import type { Exercise, SetRow, Settings, TrainingMaxes } from '../types';
 
 interface Props {
@@ -9,13 +10,16 @@ interface Props {
   date: string;
   settings: Settings;
   tms: TrainingMaxes;
+  programApi: ProgramApi;
   onPrefill: (item: ProgramItem, load: number | null) => void;
 }
 
 export function ProgramCard({
-  plan, onSetPlan, exercises, sets, date, settings, tms, onPrefill,
+  plan, onSetPlan, exercises, sets, date, settings, tms, programApi, onPrefill,
 }: Props) {
-  const day = PROGRAM.days.find((d) => d.key === plan) || null;
+  const active = programApi.programs.find((p) => p.id === programApi.activeId) || programApi.programs[0];
+  const days = active?.days ?? PROGRAM.days;
+  const day = days.find((d) => d.key === plan) || null;
 
   const doneFor = (item: ProgramItem): number => {
     const found = resolveProgramExercise(item, exercises);
@@ -31,6 +35,14 @@ export function ProgramCard({
 
   return (
     <div className="card progcard">
+      <ProgramPicker
+        programs={programApi.programs}
+        activeId={programApi.activeId}
+        onSelect={programApi.onSelect}
+        onRename={programApi.onRename}
+        onDelete={programApi.onDelete}
+        onAddCopy={() => programApi.onAdd(`${active?.name || 'Programme'} copy`, days)}
+      />
       <div className="prog-head">
         <div className="selwrap">
           <select
@@ -38,8 +50,8 @@ export function ProgramCard({
             value={plan || ''}
             onChange={(e) => onSetPlan(e.target.value)}
           >
-            <option value="">Programme — pick a day…</option>
-            {PROGRAM.days.map((d) => (
+            <option value="">Pick a day…</option>
+            {days.map((d) => (
               <option key={d.key} value={d.key}>
                 Week {d.week} · {d.dow} — {d.focus}
               </option>

@@ -9,7 +9,27 @@ import type { ProgramItem } from './data/program';
 import type { Exercise, TrainingMaxes } from './types';
 
 export { PROGRAM } from './data/program';
-export type { ProgramItem, ProgramDay } from './data/program';
+export type { ProgramItem, ProgramDay, Program } from './data/program';
+
+import type { ProgramDay } from './data/program';
+
+/** A user-stored program: the embedded block is seeded as the first one, and
+    copies can be added and renamed. */
+export interface StoredProgram {
+  id: string;
+  name: string;
+  days: ProgramDay[];
+}
+
+/** Program-management surface passed down to the ProgramCard. */
+export interface ProgramApi {
+  programs: StoredProgram[];
+  activeId: string;
+  onSelect: (id: string) => void;
+  onRename: (id: string, name: string) => void;
+  onDelete: (id: string) => void;
+  onAdd: (name: string, days: ProgramDay[]) => void;
+}
 
 type TmKey = keyof TrainingMaxes;
 

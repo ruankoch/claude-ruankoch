@@ -225,6 +225,42 @@ html, body, #root { background: #101214; }
 
 /* programme */
 .progcard { padding: 10px; }
+
+.progpicker { position: relative; margin-bottom: 8px; }
+.progpick-btn {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+  padding: 11px 14px;
+}
+.progpick-label {
+  color: #7E858C; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  font-family: 'Barlow Condensed', sans-serif; font-weight: 600; flex: 0 0 auto;
+}
+.progpick-active { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.progpick-btn .selarrow { position: static; transform: none; }
+.progpick-menu {
+  margin-top: 6px; background: #101214; border: 1px solid #2A2E33; border-radius: 12px;
+  padding: 6px; display: flex; flex-direction: column; gap: 2px;
+}
+.progpick-row { display: flex; align-items: center; gap: 6px; }
+.progpick-name {
+  flex: 1; text-align: left; background: none; border: none; color: #EDEDE8;
+  font-family: 'Barlow', sans-serif; font-size: 14.5px; padding: 10px 10px; border-radius: 8px; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.progpick-name.on { color: #6FCF97; font-weight: 600; }
+.progpick-name:active { background: #15181B; }
+.progpick-row .txt { flex: 1; }
+.progpick-ico {
+  flex: 0 0 auto; width: 40px; height: 38px; border-radius: 8px; border: 1px solid #2A2E33;
+  background: #15181B; color: #B9BEC4; font-size: 14px; cursor: pointer;
+}
+.progpick-ico.armed { background: #D23B33; border-color: #D23B33; color: #fff; width: auto; padding: 0 10px; font-size: 12px; }
+.progpick-add {
+  margin-top: 4px; text-align: left; background: none; border: 1px dashed #3A3F45;
+  border-radius: 8px; color: #B9BEC4; font-family: 'Barlow', sans-serif; font-size: 13.5px;
+  padding: 10px 12px; cursor: pointer;
+}
+
 .prog-head { display: flex; gap: 8px; }
 .exsel.prog { font-size: 14.5px; padding: 11px 36px 11px 12px; }
 .prog-items { margin-top: 8px; }

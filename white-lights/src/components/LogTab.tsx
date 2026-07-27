@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ExercisePicker } from './ExercisePicker';
 import { ProgramCard } from './ProgramCard';
 import { PlateStrip } from './PlateStrip';
-import { resolveProgramExercise, type ProgramItem } from '../program';
+import { resolveProgramExercise, type ProgramApi, type ProgramItem } from '../program';
 import {
   goalBest, goalName, isDumbbell, loadOffset, perSideText, round1, uid, warmupRamp,
 } from '../derive';
@@ -17,6 +17,7 @@ interface Props {
   goals: Goal[];
   notes: Record<string, string>;
   plan: string | null;
+  programApi: ProgramApi;
   onAddSet: (set: SetRow) => void;
   onDeleteSet: (id: string) => void;
   onEditSet: (set: SetRow) => void;
@@ -28,7 +29,7 @@ interface Props {
 const RPE_OPTS: (number | null)[] = [null, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10];
 
 export function LogTab({
-  exercises, sets, settings, tms, goals, notes, plan,
+  exercises, sets, settings, tms, goals, notes, plan, programApi,
   onAddSet, onDeleteSet, onEditSet, onAddExercise, onSetNote, onSetPlan,
 }: Props) {
   const [exId, setExId] = useState(exercises[0]?.id || '');
@@ -96,7 +97,8 @@ export function LogTab({
     <div>
       <ProgramCard
         plan={plan} onSetPlan={onSetPlan} exercises={exercises} sets={sets}
-        date={date} settings={settings} tms={tms} onPrefill={prefillFromProgram}
+        date={date} settings={settings} tms={tms} programApi={programApi}
+        onPrefill={prefillFromProgram}
       />
 
       <ExercisePicker
