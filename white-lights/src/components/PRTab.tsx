@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { ExercisePicker } from './ExercisePicker';
 import { HistoricPRCard } from './HistoricPRCard';
 import { GoalsCard } from './GoalsCard';
-import { colorForReps, e1rm, resolveExId, round1 } from '../derive';
+import { colorForReps, e1rm, resolveExId, round1, wLabel } from '../derive';
 import { fmtDate, fmtDateFull } from '../dates';
 import type { Exercise, Goal, SetRow, Settings } from '../types';
 
@@ -90,7 +90,7 @@ export function PRTab({
             <span className="unit"> {settings.units}</span>
           </div>
           <div className="bigstat-sub">
-            from {bestE.s.weight}×{bestE.s.reps}
+            from {wLabel(bestE.s.weight, settings.units)}×{bestE.s.reps}
             {bestE.s.rpe != null ? ` @${bestE.s.rpe}` : ''} on {fmtDateFull(bestE.s.date)}
           </div>
         </div>

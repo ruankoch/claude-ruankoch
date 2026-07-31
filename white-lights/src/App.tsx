@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppData } from './hooks/useAppData';
 import { beepThree, ensureAudio } from './audio';
-import { e1rm, goalMetBySet, goalName } from './derive';
+import { e1rm, goalMetBySet, goalName, wLabel } from './derive';
 import { LogTab } from './components/LogTab';
 import { PRTab } from './components/PRTab';
 import { HistoryTab } from './components/HistoryTab';
@@ -131,19 +131,19 @@ export default function App() {
 
     const exName = exercises.find((e) => e.id === set.exId)?.name || '';
     if (set.miss) {
-      showToast({ pr: false, text: `Miss logged — ${set.weight}${settings.units} × ${set.reps}` });
+      showToast({ pr: false, text: `Miss logged — ${wLabel(set.weight, settings.units)} × ${set.reps}` });
     } else if (set.warmup) {
-      showToast({ pr: false, text: `Warm-up logged — ${set.weight}${settings.units} × ${set.reps}` });
+      showToast({ pr: false, text: `Warm-up logged — ${wLabel(set.weight, settings.units)} × ${set.reps}` });
     } else if (bits.length) {
       showToast({ pr: true, text: `${exName} — ${bits.join(' · ')}` });
     } else {
-      showToast({ pr: false, text: `Logged ${set.weight}${settings.units} × ${set.reps}` });
+      showToast({ pr: false, text: `Logged ${wLabel(set.weight, settings.units)} × ${set.reps}` });
     }
   };
 
   const addHistoric = (set: SetRow) => {
     void api.addHistoric(set);
-    showToast({ pr: false, text: `Historic PR saved — ${set.weight}${settings.units} × ${set.reps}` });
+    showToast({ pr: false, text: `Historic PR saved — ${wLabel(set.weight, settings.units)} × ${set.reps}` });
   };
 
   if (!loaded) {

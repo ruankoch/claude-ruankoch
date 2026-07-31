@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  e1rm, goalBest, goalMetBySet, goalName, loadOffset, perSideText, plateBreakdown,
-  rollingDenominator, round2_5, warmupRamp,
+  e1rm, goalBest, goalMetBySet, goalName, isDumbbell, isMachine, loadOffset, perSideText,
+  plateBreakdown, rollingDenominator, round2_5, warmupRamp, wLabel,
 } from './derive';
 import type { Goal, SetRow, Settings } from './types';
 
@@ -108,6 +108,33 @@ describe('round2_5 (program engine rounding)', () => {
     expect(round2_5(166.6)).toBe(167.5);
     expect(round2_5(165.0)).toBe(165);
     expect(round2_5(163.7)).toBe(162.5);
+  });
+});
+
+describe('exercise loading classification', () => {
+  it('detects dumbbell lifts', () => {
+    ['DB Bench Press', 'Dumbbell Curl', 'DB Bulgarian Split Squats', 'Incline Dumbell Press'].forEach((n) =>
+      expect(isDumbbell(n)).toBe(true),
+    );
+    ['Deadlift', 'Low Bar Squat', 'Bench Press'].forEach((n) => expect(isDumbbell(n)).toBe(false));
+  });
+  it('detects machine / non-barbell lifts', () => {
+    [
+      'Leg Press', 'Lat Pulldown', 'Hamstring Curl', 'Hip Thrust Machine', 'Weighted Pull-ups',
+      'Chin-ups (bodyweight)', 'GHD Back Extension', 'Weighted Dips', 'Lateral Raise',
+      'Chest Press Machine', 'Leg Extension', 'Calf Raise',
+    ].forEach((n) => expect(isMachine(n)).toBe(true));
+  });
+  it('does NOT flag barbell lifts as machines', () => {
+    [
+      'Bench Press', 'Overhead Press', 'Low Bar Squat', 'High Bar Squat', 'Conventional Deadlift',
+      'BB Row', 'Front Squat', 'Romanian Deadlift', 'Snatch Grip Deadlift', 'Paused Bench Press (2ct)',
+    ].forEach((n) => expect(isMachine(n)).toBe(false));
+  });
+  it('wLabel shows BW for zero weight', () => {
+    expect(wLabel(0, 'kg')).toBe('BW');
+    expect(wLabel(100, 'kg')).toBe('100kg');
+    expect(wLabel(2.5, 'lb')).toBe('2.5lb');
   });
 });
 

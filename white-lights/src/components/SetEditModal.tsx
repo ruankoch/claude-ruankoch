@@ -27,10 +27,11 @@ export function SetEditModal({ set, exercises, settings, onSave, onDelete, onClo
     const cur = isNaN(w) ? 0 : w;
     setWeight(String(Math.max(0, Math.round((cur + delta) / step) * step)));
   };
-  const canSave = parseFloat(weight) > 0 && reps >= 1;
+  const wv = weight.trim() === '' ? 0 : parseFloat(weight); // empty = bodyweight
+  const canSave = Number.isFinite(wv) && wv >= 0 && reps >= 1;
   const save = () => {
     if (!canSave) return;
-    onSave({ exId, date, weight: parseFloat(weight), reps, rpe, miss, warmup });
+    onSave({ exId, date, weight: wv, reps, rpe, miss, warmup });
   };
 
   return (

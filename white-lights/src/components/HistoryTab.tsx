@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { colorForReps, e1rm, round1 } from '../derive';
+import { colorForReps, e1rm, round1, wLabel } from '../derive';
 import { fmtDateFull, rangeCutoff } from '../dates';
 import type { Exercise, SetRow, Settings } from '../types';
 
@@ -253,8 +253,7 @@ export function HistoryTab({ exercises, sets, settings, notes, onDeleteSet, onEd
                 {exId === ALL && <span className="hist-ex">{nameOf(s.exId)} </span>}
                 <span className="hist-num">
                   {s.miss && <span className="missx">✗ </span>}
-                  {s.weight}
-                  {settings.units} × {s.reps}
+                  {wLabel(s.weight, settings.units)} × {s.reps}
                   {s.rpe != null ? ` @${s.rpe}` : ''}
                 </span>
                 {!s.miss && !s.warmup && exId !== ALL && bestAtRep[s.reps] === s.weight && (

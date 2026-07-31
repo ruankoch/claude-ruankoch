@@ -4,7 +4,7 @@ import { ProgramCard } from './ProgramCard';
 import { PlateStrip } from './PlateStrip';
 import { resolveProgramExercise, type ProgramApi, type ProgramItem } from '../program';
 import {
-  goalBest, goalName, isDumbbell, loadOffset, perSideText, round1, uid, warmupRamp,
+  goalBest, goalName, isDumbbell, isMachine, loadOffset, perSideText, round1, uid, warmupRamp, wLabel,
 } from '../derive';
 import { fmtDateFull, todayStr } from '../dates';
 import type { Exercise, Goal, SetRow, Settings, TrainingMaxes } from '../types';
@@ -61,12 +61,14 @@ export function LogTab({
     setWeight(String(next));
   };
 
-  const canLog = !!exId && parseFloat(weight) > 0 && reps >= 1;
+  // empty weight = bodyweight (0); 0 is a valid log
+  const wVal = weight.trim() === '' ? 0 : parseFloat(weight);
+  const canLog = !!exId && Number.isFinite(wVal) && wVal >= 0 && reps >= 1;
 
   const log = () => {
     if (!canLog) return;
     onAddSet({
-      id: uid(), exId, date, weight: parseFloat(weight), reps, rpe,
+      id: uid(), exId, date, weight: wVal, reps, rpe,
       miss: miss || undefined,
       warmup: warmup || undefined,
     });
@@ -95,6 +97,7 @@ export function LogTab({
   const wNum = parseFloat(weight);
   const offset = loadOffset(settings.units, settings.collars);
   const isDb = isDumbbell(exName(exId));
+  const isMach = !isDb && isMachine(exName(exId));
 
   return (
     <div>
@@ -150,7 +153,7 @@ export function LogTab({
           </div>
         </div>
 
-        {settings.plates !== false && !isDb && wNum > offset && (
+        {settings.plates !== false && !isDb && !isMach && wNum > offset && (
           <PlateStrip total={wNum} units={settings.units} collars={settings.collars} />
         )}
 
@@ -169,7 +172,7 @@ export function LogTab({
           </div>
         )}
 
-        {!isDb && wNum > offset && (
+        {!isDb && !isMach && wNum > offset && (
           <div className="warmwrap">
             <button className="warmlink" onClick={() => setShowWarm((v) => !v)}>
               {showWarm ? '▾ Warm-up ramp' : '▸ Warm-up ramp'}
@@ -250,7 +253,7 @@ export function LogTab({
             {miss ? 'Log miss ✗' : warmup ? 'Log warm-up' : 'Log set'}
           </button>
           <button className="btn ghost" disabled={!lastForEx} onClick={repeatLast}>
-            {lastForEx ? `Repeat ${lastForEx.weight}×${lastForEx.reps}` : 'Repeat last'}
+            {lastForEx ? `Repeat ${wLabel(lastForEx.weight, settings.units)}×${lastForEx.reps}` : 'Repeat last'}
           </button>
         </div>
         <button className={'misslink' + (miss ? ' on' : '')} onClick={() => setMiss((m) => !m)}>
@@ -280,8 +283,7 @@ export function LogTab({
             </span>
             <span className="set-num">
               {s.miss && <span className="missx">✗ </span>}
-              {s.weight}
-              {settings.units} × {s.reps}
+              {wLabel(s.weight, settings.units)} × {s.reps}
               {s.rpe != null ? ` @${s.rpe}` : ''}
             </span>
           </button>

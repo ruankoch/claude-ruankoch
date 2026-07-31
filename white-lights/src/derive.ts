@@ -11,6 +11,18 @@ export const round1 = (x: number): number => Math.round(x * 10) / 10;
     These skip barbell plate math and show a per-hand readout instead. */
 export const isDumbbell = (name: string): boolean => /\bdb\b|dumbb?ell/i.test(name || '');
 
+/** True for machine / non-barbell movements — total weight only, no per-side
+    plate breakdown (leg press, pulldowns, curls, hip thrust, pull-ups, etc.).
+    Deliberately avoids bare "press"/"row"/"squat" so barbell lifts keep plates. */
+export const isMachine = (name: string): boolean =>
+  /\b(machine|cable|pulldown|pull-?down|pec ?deck|flye?|leg press|hack squat|belt squat|pendulum|hip thrust|glute|back ?extension|ghd|calf|abduction|adduction|nordic|pull-?ups?|chin-?ups?|dips?|curl|extension|raise)\b/i.test(
+    name || '',
+  );
+
+/** Weight label: 0 shows as "BW" (bodyweight), otherwise "<n><units>". */
+export const wLabel = (weight: number, units: Units): string =>
+  weight === 0 ? 'BW' : `${weight}${units}`;
+
 /** Resolve a stored selection to a valid exercise id, falling back to the first
     (e.g. when nothing is selected yet or the selected lift was deleted). */
 export function resolveExId(selected: string, exercises: Exercise[]): string {
